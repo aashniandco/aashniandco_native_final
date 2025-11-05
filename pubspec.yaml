@@ -1,0 +1,231 @@
+name: aashniandco
+description: "A new Flutter project."
+# The following line prevents the package from being accidentally published to
+# pub.dev using `flutter pub publish`. This is preferred for private packages.
+publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+
+# The following defines the version and build number for your application.
+# A version number is three numbers separated by dots, like 1.2.43
+# followed by an optional build number separated by a +.
+# Both the version and the builder number may be overridden in flutter
+# build by specifying --build-name and --build-number, respectively.
+# In Android, build-name is used as versionName while build-number used as versionCode.
+# Read more about Android versioning at https://developer.android.com/studio/publish/versioning
+# In iOS, build-name is used as CFBundleShortVersionString while build-number is used as CFBundleVersion.
+# Read more about iOS versioning at
+# https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
+# In Windows, build-name is used as the major, minor, and patch parts
+# of the product and file versions while build-number is used as the build suffix.
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.9.0
+
+# Dependencies specify other packages that your package needs in order to work.
+# To automatically upgrade your package dependencies to the latest versions
+# consider running `flutter pub upgrade --major-versions`. Alternatively,
+# dependencies can be manually updated by changing the version numbers below to
+# the latest version available on pub.dev. To see which dependencies have newer
+# versions available, run `flutter pub outdated`.
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_stripe: 11.0.0
+
+  # The following adds the Cupertino Icons font to your application.
+  # Use with the CupertinoIcons class for iOS style icons.
+  cupertino_icons: ^1.0.8
+  flutter_multi_formatter: ^2.13.7
+  cached_network_image: ^3.4.1
+  equatable: ^2.0.5
+  collection: ^1.17.2
+  html: ^0.15.6
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_riverpod: ^2.0.3
+  carousel_slider: ^4.0.0
+  shimmer: ^3.0.0
+  flutter_bloc:
+  http:
+  share_plus: ^10.1.2
+  image_picker:
+  flutter_inappwebview: ^6.0.0
+
+  equatable: ^2.0.5
+  smooth_page_indicator: ^1.0.0
+  url_launcher: ^6.1.14
+  google_fonts: ^6.1.0
+  connectivity_plus: ^6.1.0
+  shared_preferences: ^2.5.3
+  dio: ^5.2.1
+  dio_cookie_manager: ^2.0.0
+  cookie_jar: ^3.0.1
+  collection: ^1.17.0
+  intl: ^0.18.1
+  payu_checkoutpro_flutter: ^1.3.4
+  flutter_launcher_icons: ^0.13.1
+  bloc_concurrency: ^0.2.2
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/app_icon.png"
+  remove_alpha_ios: true
+
+
+
+
+  # The "flutter_lints" package below contains a set of recommended lints to
+  # encourage good coding practices. The lint set provided by the package is
+  # activated in the `analysis_options.yaml` file located at the root of your
+  # package. See that file for information about deactivating specific lint
+  # rules and activating additional ones.
+  flutter_lints: ^5.0.0
+
+# For information on the generic Dart part of this file, see the
+# following page: https://dart.dev/tools/pub/pubspec
+
+dependency_overrides:
+  flutter_stripe: 11.0.0
+  stripe_platform_interface: 11.0.0
+  stripe_ios: 11.0.0
+
+# The following section is specific to Flutter packages.
+flutter:
+
+  # The following line ensures that the Material Icons font is
+  # included with your application, so that you can use the icons in
+  # the material Icons class.
+  uses-material-design: true
+
+  # To add assets to your application, add an assets section, like this:
+  assets:
+    - assets/logo.jpeg
+
+    - assets/Banner-1.jpg
+    - assets/Banner-2.jpg
+    - assets/Banner-3.jpg
+    - assets/Banner-4.jpg
+    - assets/Banner-new-1-.jpg
+    - assets/Banner-SS25-New.jpg
+    - assets/resize_men.jpg
+    - assets/resize_new_in.jpg
+    - assets/resize_women.jpg
+    - assets/resize_jewelry.jpg
+    - assets/resize_accessories.jpg
+    - assets/resize_wedding.jpg
+    - assets/resize_kids.jpg
+    - assets/resize_sale.jpg
+    - assets/resize_readytoship.jpg
+    - assets/resize_designers.jpg
+    - assets/resize_bestsellers.jpg
+    - assets/payu_logo.png
+
+
+    - assets/New-In-1.jpg
+    - assets/New-In-2.jpg
+    - assets/New-In-3.jpg
+    - assets/New-In-4.jpg
+    - assets/New-In-5.jpg
+    - assets/New-In-6.jpg
+    - assets/New-In-7.jpg
+    - assets/New-In-8.jpg
+    - assets/New-In-9.jpg
+    - assets/New-In-10.jpg
+    - assets/New-In-11.jpg
+    - assets/New-In-12.jpg
+    - assets/New-In-13.jpg
+    - assets/RTS.jpg
+    - assets/Occasion-wear-lehengas.jpg
+    - assets/Sabya.jpg
+    - assets/Shop-by-style-1.jpg
+    - assets/Shop-by-style-2.jpg
+    - assets/Shop-by-style-3.jpg
+    - assets/Shop-by-style-4.jpg
+    - assets/Shop-by-style-5.jpg
+    - assets/Shop-by-style-6.jpg
+    - assets/Shop-by-style-7.jpg
+    - assets/Shop-by-style-8.jpg
+    - assets/Shop-by-occassion-1.jpg
+    - assets/Shop-by-occassion-2.jpg
+    - assets/Shop-by-occassion-3.jpg
+    - assets/Shop-by-occassion-4.jpg
+    - assets/Shop-by-occassion-5.jpg
+    - assets/Shop-by-occassion-6.jpg
+    - assets/Celeb-Spotting.jpg
+    - assets/Designer-of-the-week.jpg
+    - assets/ACO-EDITS-1.jpg
+    - assets/ACO-EDITS-2.jpg
+    - assets/ACO-EDITS-3.jpg
+    - assets/ACO-EDITS-4.jpg
+    - assets/ACO-EDITS-5.jpg
+    - assets/ACO-EDITS-6.jpg
+    - assets/ACO-EDITS-7.jpg
+    - assets/ACO-EDITS-8.jpg
+    - assets/Here-comes-the-bride.jpg
+    - assets/Trousseau-Essentials.jpg
+    - assets/Gold-&-Ivory-Lehengas.jpg
+    - assets/Code-Red.jpg
+    - assets/Bride-Bling.jpg
+    - assets/Finishing-Touches.jpg
+    - assets/LAST-MINUTE-EID-PICKS.jpg
+    - assets/Accessories-for-him.jpg
+    - assets/ACO-KIDS.jpg
+    - assets/Festive-Favourites.jpg
+    - assets/Modern-Jewels.jpg
+    - assets/Everyday-Classics.jpg
+    - assets/Hand-Jewelry.jpg
+    - assets/Menswear-Edit-1.jpg
+    - assets/Menswear-Edit-2.jpg
+    - assets/Menswear-Edit-3.jpg
+    - assets/Menswear-Edit-4.jpg
+    - assets/A Tribute to Rohit Bal The Eternal Maestro of Indian Fashion.jpg
+    - assets/Benarasi Lehengas A Nod to Heritage.jpg
+    - assets/Bridal Trends in 2025.jpg
+    - assets/Elevating Traditional Fashion with the Latest Anarkali Trends.jpg
+    - assets/The Comeback of the Mermaid Lehenga.jpg
+
+
+    - assets/Bridesmaid-Glam-New.jpg
+    - assets/google_logo.png
+    - assets/mens1.png
+    - assets/mens11.png
+    - assets/kids.png
+    - assets/asuka_blazer.png
+    - assets/size_chart.png
+    - assets/women_size_chart.png
+    - assets/women_size_chart.png
+    - assets/bg_cards.jpg
+    - assets/shopping_bags.jpg
+    - assets/Pop-Up_B.jpg
+    - assets/wedding-curation.jpg
+    - assets/splash_new.png
+
+
+  # An image asset can refer to one or more resolution-specific "variants", see
+  # https://flutter.dev/to/resolution-aware-images
+
+  # For details regarding adding assets from package dependencies, see
+  # https://flutter.dev/to/asset-from-package
+
+  # To add custom fonts to your application, add a fonts section here,
+  # in this "flutter" section. Each entry in this list should have a
+  # "family" key with the font family name, and a "fonts" key with a
+  # list giving the asset and other descriptors for the font. For
+  # example:
+  # fonts:
+  #   - family: Schyler
+  #     fonts:
+  #       - asset: fonts/Schyler-Regular.ttf
+  #       - asset: fonts/Schyler-Italic.ttf
+  #         style: italic
+  #   - family: Trajan Pro
+  #     fonts:
+  #       - asset: fonts/TrajanPro.ttf
+  #       - asset: fonts/TrajanPro_Bold.ttf
+  #         weight: 700
+  #
+  # For details regarding fonts from package dependencies,
+  # see https://flutter.dev/to/font-from-package
