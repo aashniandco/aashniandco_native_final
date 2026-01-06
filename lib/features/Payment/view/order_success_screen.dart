@@ -98,6 +98,60 @@ class _OrderSuccessScreenState extends State<OrderSuccessScreen> {
     });
   }
 
+  // ✅ NEW METHOD: Displays addresses directly from the API response string
+  Widget _buildAddressesFromApi(BuildContext context, String shippingStr, String billingStr) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(child: _buildAddressColumnString(context, 'Shipping Address', shippingStr)),
+        const SizedBox(width: 16),
+        Expanded(child: _buildAddressColumnString(context, 'Billing Address', billingStr)),
+      ],
+    );
+  }
+
+  Widget _buildAddressColumnString(BuildContext context, String title, String address) {
+    final bodyStyle = Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.5);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600, fontSize: 20)),
+        const SizedBox(height: 12),
+        // The API usually returns address with \n newlines, Text widget handles this automatically
+        Text(address, style: bodyStyle),
+      ],
+    );
+  }
+
+  // ✅ NEW METHOD: Displays methods directly from the API response string
+  Widget _buildMethodsFromApi(BuildContext context, String shippingMethod, String paymentMethod) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Shipping Method', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600, fontSize: 20)),
+              const SizedBox(height: 12),
+              Text(shippingMethod, style: Theme.of(context).textTheme.bodyMedium),
+            ],
+          ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Payment Method', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600, fontSize: 20)),
+              const SizedBox(height: 12),
+              Text(paymentMethod, style: Theme.of(context).textTheme.bodyMedium),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
   Future<void> _fetchFullOrderDetails() async {
     setState(() {
       _isLoadingFetchedOrder = true;
@@ -330,14 +384,25 @@ class _OrderSuccessScreenState extends State<OrderSuccessScreen> {
                 const SizedBox(height: 24),
                 Text('Order Information', style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontFamily: 'serif')),
                 const SizedBox(height: 24),
-                _buildAddresses(context, order.shippingAddress, order.billingAddress),
+                // _buildAddresses(context, order.shippingAddress, order.billingAddress),
+                _buildAddresses( // Now takes Strings
+                    context,
+                    _fetchedOrderDetails!.shipTo,
+                    _fetchedOrderDetails!.billingAddress
+                ),
+
                 const SizedBox(height: 24),
-                _buildMethods(context, order.shippingMethod, order.paymentMethod),
+                // _buildMethods(context, order.shippingMethod, order.paymentMethod),
+                _buildMethods( // Now takes Strings
+                    context,
+                    _fetchedOrderDetails!.shippingMethod,
+                    _fetchedOrderDetails!.paymentMethod
+                ),
                 const SizedBox(height: 32),
                 _buildItemsOrdered(context, order.items, currencyRate, currencyFormat)
                 ,
                 const SizedBox(height: 32),
-                _buildTotals(context, order.totals, currencyRate, currencyFormat,couponCode: order.totals.couponCode)
+                _buildTotals(context, order.totals, currencyRate, currencyFormat,  couponCode: order.totals.couponCode,)
                 ,
                 const SizedBox(height: 48),
                 SizedBox(
@@ -445,35 +510,34 @@ class _OrderSuccessScreenState extends State<OrderSuccessScreen> {
     );
   }
 
-  Widget _buildAddresses(BuildContext context, Address? shipping, Address? billing) {
+  // Used for displaying the Address text received from the API
+  Widget _buildAddresses(BuildContext context, String shippingStr, String billingStr) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(child: _buildAddressColumn(context, 'Shipping Address', shipping)),
+        Expanded(child: _buildAddressColumn(context, 'Shipping Address', shippingStr)),
         const SizedBox(width: 16),
-        Expanded(child: _buildAddressColumn(context, 'Billing Address', billing)),
+        Expanded(child: _buildAddressColumn(context, 'Billing Address', billingStr)),
       ],
     );
   }
 
-  Widget _buildAddressColumn(BuildContext context, String title, Address? address) {
-    if (address == null) return const SizedBox.shrink();
-    final bodyStyle = Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.4);
+  // Used for styling the address text
+  Widget _buildAddressColumn(BuildContext context, String title, String address) {
+    final bodyStyle = Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.5);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(title, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600, fontSize: 20)),
         const SizedBox(height: 12),
-        Text(address.name, style: bodyStyle),
-        Text(address.street, style: bodyStyle),
-        Text(address.cityPostcode, style: bodyStyle),
-        Text(address.country, style: bodyStyle),
-        Text(address.telephone, style: bodyStyle),
+        // API returns data with newlines (\n), so we just display it directly
+        Text(address, style: bodyStyle),
       ],
     );
   }
 
-  Widget _buildMethods(BuildContext context, String shippingMethod, PaymentMethod paymentMethod) {
+  // Used for displaying method names received from the API
+  Widget _buildMethods(BuildContext context, String shippingMethod, String paymentMethod) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -494,13 +558,69 @@ class _OrderSuccessScreenState extends State<OrderSuccessScreen> {
             children: [
               Text('Payment Method', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600, fontSize: 20)),
               const SizedBox(height: 12),
-              Text(paymentMethod.title, style: Theme.of(context).textTheme.bodyMedium),
+              Text(paymentMethod, style: Theme.of(context).textTheme.bodyMedium),
             ],
           ),
         ),
       ],
     );
   }
+  // Widget _buildAddresses(BuildContext context, Address? shipping, Address? billing) {
+  //   return Row(
+  //     crossAxisAlignment: CrossAxisAlignment.start,
+  //     children: [
+  //       Expanded(child: _buildAddressColumn(context, 'Shipping Address', shipping)),
+  //       const SizedBox(width: 16),
+  //       Expanded(child: _buildAddressColumn(context, 'Billing Address', billing)),
+  //     ],
+  //   );
+  // }
+  //
+  // Widget _buildAddressColumn(BuildContext context, String title, Address? address) {
+  //   if (address == null) return const SizedBox.shrink();
+  //   final bodyStyle = Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.4);
+  //   return Column(
+  //     crossAxisAlignment: CrossAxisAlignment.start,
+  //     children: [
+  //       Text(title, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600, fontSize: 20)),
+  //       const SizedBox(height: 12),
+  //       Text(address.name, style: bodyStyle),
+  //       Text(address.street, style: bodyStyle),
+  //       Text(address.cityPostcode, style: bodyStyle),
+  //       Text(address.country, style: bodyStyle),
+  //       Text(address.telephone, style: bodyStyle),
+  //     ],
+  //   );
+  // }
+  //
+  // Widget _buildMethods(BuildContext context, String shippingMethod, PaymentMethod paymentMethod) {
+  //   return Row(
+  //     crossAxisAlignment: CrossAxisAlignment.start,
+  //     children: [
+  //       Expanded(
+  //         child: Column(
+  //           crossAxisAlignment: CrossAxisAlignment.start,
+  //           children: [
+  //             Text('Shipping Method', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600, fontSize: 20)),
+  //             const SizedBox(height: 12),
+  //             Text(shippingMethod, style: Theme.of(context).textTheme.bodyMedium),
+  //           ],
+  //         ),
+  //       ),
+  //       const SizedBox(width: 16),
+  //       Expanded(
+  //         child: Column(
+  //           crossAxisAlignment: CrossAxisAlignment.start,
+  //           children: [
+  //             Text('Payment Method', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600, fontSize: 20)),
+  //             const SizedBox(height: 12),
+  //             Text(paymentMethod.title, style: Theme.of(context).textTheme.bodyMedium),
+  //           ],
+  //         ),
+  //       ),
+  //     ],
+  //   );
+  // }
 
   Widget _buildTotals(
       BuildContext context,
@@ -564,7 +684,72 @@ class _OrderSuccessScreenState extends State<OrderSuccessScreen> {
       ),
     );
   }
-  //live*
+
+//stage*
+  // Widget _buildTotals(
+  //     BuildContext context,
+  //     Totals totals,
+  //     double currencyRate,
+  //     NumberFormat currencyFormat,
+  //     ) {
+  //   final textStyle = Theme.of(context).textTheme.bodyLarge;
+  //   final grandTotalStyle =
+  //   textStyle?.copyWith(fontWeight: FontWeight.bold, fontSize: 20);
+  //
+  //   // Apply currency conversion before formatting
+  //   final convertedSubtotal = totals.subtotal * currencyRate;
+  //   final convertedShipping = totals.shipping * currencyRate;
+  //   final convertedDiscount = totals.discount * currencyRate; // Convert the discount
+  //   final convertedGrandTotal = totals.grandTotal * currencyRate;
+  //
+  //   return Align(
+  //     alignment: Alignment.centerRight,
+  //     child: SizedBox(
+  //       width: 300,
+  //       child: Column(
+  //         children: [
+  //           _buildKeyValueRow(
+  //             'Subtotal',
+  //             currencyFormat.format(convertedSubtotal),
+  //             context: context,
+  //             style: textStyle,
+  //           ),
+  //           const SizedBox(height: 8),
+  //           _buildKeyValueRow(
+  //             'Shipping & Handling',
+  //             currencyFormat.format(convertedShipping),
+  //             context: context,
+  //             style: textStyle,
+  //           ),
+  //
+  //           // ✅ START: ADD CONDITIONAL DISCOUNT ROW
+  //           // This block only appears if there was a discount.
+  //           if (totals.discount > 0) ...[
+  //             const SizedBox(height: 8),
+  //             _buildKeyValueRow(
+  //               'Discount',
+  //               // Display as a negative value, e.g., "-₹86.21"
+  //               '-${currencyFormat.format(convertedDiscount)}',
+  //               context: context,
+  //               // Style it to stand out
+  //               style: textStyle?.copyWith(color: Colors.black),
+  //             ),
+  //           ],
+  //           // ✅ END: ADD CONDITIONAL DISCOUNT ROW
+  //
+  //           const Divider(height: 24, thickness: 1),
+  //           _buildKeyValueRow(
+  //             'Grand Total',
+  //             currencyFormat.format(convertedGrandTotal),
+  //             context: context,
+  //             style: grandTotalStyle,
+  //           ),
+  //         ],
+  //       ),
+  //     ),
+  //   );
+  // }
+
   // Widget _buildTotals(
   //     BuildContext context,
   //     Totals totals,
@@ -783,6 +968,752 @@ class _OrderItemCardState extends State<OrderItemCard> {
 
 
 }
+//8/12/2025
+// class OrderSuccessScreen extends StatefulWidget {
+//   // These are the parameters passed from your checkout screen
+//   final int orderId;
+//   final Map<String, dynamic> totals;
+//   final Map<String, dynamic> billingAddress;
+//   final List<dynamic> items;
+//   final String paymentMethodCode;
+//   final String? guestEmail;
+//
+//   const OrderSuccessScreen({
+//     Key? key,
+//     required this.orderId,
+//     required this.totals,
+//     required this.billingAddress,
+//     required this.items,
+//     required this.paymentMethodCode,
+//     this.guestEmail, // optional
+//   }) : super(key: key);
+//
+//   @override
+//   State<OrderSuccessScreen> createState() => _OrderSuccessScreenState();
+// }
+//
+// class _OrderSuccessScreenState extends State<OrderSuccessScreen> {
+//   // This state holds the fully constructed OrderDetails object.
+//   late final OrderDetails order;
+//   OrderDetails11? _fetchedOrderDetails; // New variable for API fetched data
+//   bool _isLoadingFetchedOrder = true;
+//   String? _errorMessage;
+//
+//   // ❌ Image fetching logic is REMOVED from this state.
+//   // It now lives inside each individual OrderItemCard.
+//
+// // Example if OrderHistoryRepository already exists and has this method:
+//   final OrderHistoryRepository _orderHistoryRepository = OrderHistoryRepository();
+//
+//   final CartRepository _cartRepository= CartRepository();
+//   @override
+//   void initState() {
+//     super.initState();
+//     // This part is correct: construct the order details object from widget parameters.
+//     order = OrderDetails.fromCheckoutData(
+//       orderId: widget.orderId,
+//       totalsData: widget.totals,
+//       billingAddressData: widget.billingAddress,
+//       cartItems: widget.items,
+//       paymentMethodCode: widget.paymentMethodCode,
+//     );
+//
+//
+//
+//     _fetchFullOrderDetails();
+//     // Clear the user's cart after the order is successful.
+//     WidgetsBinding.instance.addPostFrameCallback((_) {
+//       if (mounted) {
+//         context.read<CartBloc>().add(FetchCartItems());
+//       }
+//     });
+//   }
+//
+//   Future<void> _fetchFullOrderDetails() async {
+//     setState(() {
+//       _isLoadingFetchedOrder = true;
+//       _errorMessage = null;
+//     });
+//
+//     try {
+//       final prefs = await SharedPreferences.getInstance();
+//       final token = prefs.getString('user_token');
+//       final savedEmail = prefs.getString('user_email');
+//
+//       OrderDetails11 result;
+//
+//       if (token == null) {
+//         // Guest order
+//         if (savedEmail == null || savedEmail.isEmpty) {
+//           throw Exception("Guest email not provided");
+//         }
+//         print("Fetching guest order for email: $savedEmail");
+//
+//         // Step 1: Get guest quote ID (from local storage)
+//         final guestQuoteId = prefs.getString('guest_quote_id');
+//         if (guestQuoteId == null || guestQuoteId.isEmpty) {
+//           throw Exception("Guest quote ID not found");
+//         }
+//         print("Guest Quote ID: $guestQuoteId");
+//
+//         // Step 2: Fetch guest cart to get reserved_order_id (increment_id)
+//         final guestCart = await _cartRepository.fetchGuestCart(guestQuoteId);
+//         final incrementId = guestCart['reserved_order_id'];
+//         if (incrementId == null || incrementId.isEmpty) {
+//           throw Exception("Failed to get reserved_order_id from guest cart");
+//         }
+//         print("Resolved Increment ID: $incrementId");
+//
+//         // Step 3: Fetch guest order using increment_id and email
+//         result = await _orderHistoryRepository.fetchGuestOrderDetails(
+//           orderIncrementId: incrementId,
+//           email: savedEmail,
+//         );
+//
+//       } else {
+//         // Logged-in user
+//         print("Fetching logged-in order for order ID ${widget.orderId}");
+//         result = await _orderHistoryRepository.fetchOrderDetails(
+//           widget.orderId.toString(),
+//         );
+//       }
+//
+//       if (mounted) {
+//         setState(() {
+//           _fetchedOrderDetails = result;
+//           _isLoadingFetchedOrder = false;
+//         });
+//       }
+//     } catch (e) {
+//       print("Error fetching order details: $e");
+//       if (mounted) {
+//         setState(() {
+//           _errorMessage =
+//           "Failed to load complete order details: ${e.toString()}";
+//           _isLoadingFetchedOrder = false;
+//         });
+//       }
+//     }
+//   }
+//
+//
+//   // Future<void> _fetchFullOrderDetails() async {
+//   //   setState(() {
+//   //     _isLoadingFetchedOrder = true;
+//   //     _errorMessage = null;
+//   //   });
+//   //
+//   //   try {
+//   //     final prefs = await SharedPreferences.getInstance();
+//   //     final token = prefs.getString('user_token');
+//   //
+//   //     OrderDetails11 result;
+//   //     final prefs1 = await SharedPreferences.getInstance();
+//   //     final savedEmail = prefs1.getString('user_email');
+//   //     if (token == null) {
+//   //       // Guest order
+//   //       final email = savedEmail;
+//   //       print("Saved Guest Email>>$email");
+//   //       if (email == null || email.isEmpty) {
+//   //         throw Exception("Guest email not provided");
+//   //       }
+//   //       print("Fetching guest order for order ID ${widget.orderId}");
+//   //       result = await _orderHistoryRepository.fetchGuestOrderDetails(
+//   //         orderIncrementId: widget.orderId.toString(),
+//   //         email: email,
+//   //       );
+//   //     } else {
+//   //       // Logged-in user
+//   //       print("Fetching logged-in order for order ID ${widget.orderId}");
+//   //       result = await _orderHistoryRepository.fetchOrderDetails(
+//   //         widget.orderId.toString(),
+//   //       );
+//   //     }
+//   //
+//   //     if (mounted) {
+//   //       setState(() {
+//   //         _fetchedOrderDetails = result;
+//   //         _isLoadingFetchedOrder = false;
+//   //       });
+//   //     }
+//   //   } catch (e) {
+//   //     print("Error fetching order details: $e");
+//   //     if (mounted) {
+//   //       setState(() {
+//   //         _errorMessage =
+//   //         "Failed to load complete order details: ${e.toString()}";
+//   //         _isLoadingFetchedOrder = false;
+//   //       });
+//   //     }
+//   //   }
+//   // }
+//
+//
+//   // Future<void> _fetchFullOrderDetails() async {
+//   //   setState(() {
+//   //     _isLoadingFetchedOrder = true;
+//   //     _errorMessage = null;
+//   //   });
+//   //
+//   //   try {
+//   //     // Assuming your OrderHistoryRepository has the fetchOrderDetails method
+//   //     final result = await _orderHistoryRepository.fetchOrderDetails(widget.orderId.toString());
+//   //     if (mounted) {
+//   //       setState(() {
+//   //         _fetchedOrderDetails = result;
+//   //         _isLoadingFetchedOrder = false;
+//   //       });
+//   //     }
+//   //   } catch (e) {
+//   //     print("Error fetching full order details from API: $e");
+//   //     if (mounted) {
+//   //       setState(() {
+//   //         _errorMessage = "Failed to load complete order details: ${e.toString()}";
+//   //         _isLoadingFetchedOrder = false;
+//   //       });
+//   //     }
+//   //   }
+//   // }
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     final currencyState = context.watch<CurrencyBloc>().state;
+//     String displaySymbol = '₹';
+//     double currencyRate = 1.0;
+//
+//     if (currencyState is CurrencyLoaded) {
+//       displaySymbol = currencyState.selectedSymbol;
+//       currencyRate = currencyState.selectedRate.rate;
+//     }
+//
+//     final NumberFormat currencyFormat = NumberFormat.currency(
+//       locale: currencyState is CurrencyLoaded ? currencyState.selectedLocale : 'en_IN',
+//       symbol: displaySymbol,
+//       decimalDigits: 2,
+//     );
+//
+//     // --- LOADING STATE ---
+//     if (_isLoadingFetchedOrder) {
+//       return Scaffold(
+//         body: Center(
+//           child: Column(
+//             mainAxisAlignment: MainAxisAlignment.center,
+//             children: [
+//               const CircularProgressIndicator(),
+//               const SizedBox(height: 16),
+//               Text('Loading order details for order ID: ${widget.orderId}...'),
+//             ],
+//           ),
+//         ),
+//       );
+//     }
+//
+//     // --- ERROR STATE ---
+//     if (_errorMessage != null) {
+//       return Scaffold(
+//         body: Center(
+//           child: Padding(
+//             padding: const EdgeInsets.all(16.0),
+//             child: Column(
+//               mainAxisAlignment: MainAxisAlignment.center,
+//               children: [
+//                 const Icon(Icons.error_outline, color: Colors.red, size: 48),
+//                 const SizedBox(height: 16),
+//                 Text(
+//                   _errorMessage!,
+//                   textAlign: TextAlign.center,
+//                   style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.red),
+//                 ),
+//                 const SizedBox(height: 24),
+//                 ElevatedButton(
+//                   onPressed: _fetchFullOrderDetails, // Retry fetching
+//                   child: const Text('RETRY'),
+//                 ),
+//               ],
+//             ),
+//           ),
+//         ),
+//       );
+//     }
+//
+//     // If we reach here, _fetchedOrderDetails should not be null.
+//     // Add a null check for safety, though the above logic should prevent it.
+//     if (_fetchedOrderDetails == null) {
+//       return Scaffold(
+//         body: Center(
+//           child: Text('Order details could not be loaded.'),
+//         ),
+//       );
+//     }
+//     return Scaffold(
+//       body: SafeArea(
+//         child: SingleChildScrollView(
+//           child: Padding(
+//             padding: const EdgeInsets.all(16.0),
+//             child: Column(
+//               crossAxisAlignment: CrossAxisAlignment.start,
+//               children: [
+//                 _buildHeader(context, _fetchedOrderDetails!.incrementId),
+//                 const SizedBox(height: 24),
+//                 const Divider(),
+//                 const SizedBox(height: 16),
+//                 _buildOrderDetails(context, order.orderDate),
+//                 const SizedBox(height: 24),
+//                 Text('Order Information', style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontFamily: 'serif')),
+//                 const SizedBox(height: 24),
+//                 _buildAddresses(context, order.shippingAddress, order.billingAddress),
+//                 const SizedBox(height: 24),
+//                 _buildMethods(context, order.shippingMethod, order.paymentMethod),
+//                 const SizedBox(height: 32),
+//                 _buildItemsOrdered(context, order.items, currencyRate, currencyFormat)
+//                 ,
+//                 const SizedBox(height: 32),
+//                 _buildTotals(context, order.totals, currencyRate, currencyFormat,couponCode: order.totals.couponCode)
+//                 ,
+//                 const SizedBox(height: 48),
+//                 SizedBox(
+//                   width: double.infinity,
+//                   child: ElevatedButton(
+//                     onPressed: () {
+//                       Navigator.pushAndRemoveUntil(
+//                         context,
+//                         MaterialPageRoute(builder: (_) => const AuthScreen()),
+//                             (Route<dynamic> route) => false,
+//                       );
+//                     },
+//                     style: ElevatedButton.styleFrom(
+//                       backgroundColor: Colors.black,
+//                       foregroundColor: Colors.white,
+//                       padding: const EdgeInsets.symmetric(vertical: 16),
+//                     ),
+//                     child: const Text('CONTINUE SHOPPING'),
+//                   ),
+//                 ),
+//               ],
+//             ),
+//           ),
+//         ),
+//       ),
+//     );
+//   }
+//
+//   // --- Helper Widgets for the Main Screen ---
+//
+//   Widget _buildHeader(BuildContext context, String orderNumber) {
+//     return Column(
+//       crossAxisAlignment: CrossAxisAlignment.start,
+//       children: [
+//         Text(
+//           'Thank you for your purchase!',
+//           style: Theme.of(context).textTheme.headlineSmall,
+//         ),
+//         const SizedBox(height: 24),
+//         RichText(
+//           text: TextSpan(
+//             style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontSize: 16),
+//             children: [
+//               const TextSpan(text: 'Your order number is: '),
+//               TextSpan(
+//                 text: orderNumber,  // <-- Pass increment_id here
+//                 style: const TextStyle(fontWeight: FontWeight.bold),
+//               ),
+//             ],
+//           ),
+//         ),
+//         const SizedBox(height: 8),
+//         Text(
+//           "We'll email you an order confirmation with details and tracking info.",
+//           style: Theme.of(context).textTheme.bodyMedium,
+//         ),
+//       ],
+//     );
+//   }
+//
+//
+//   Widget _buildItemsOrdered(
+//       BuildContext context,
+//       List<OrderItem> items,
+//       double currencyRate,           // 👈 add back
+//       NumberFormat currencyFormat,
+//       ) {
+//     return Column(
+//       crossAxisAlignment: CrossAxisAlignment.start,
+//       children: [
+//         const Text(
+//           'Items Ordered',
+//           style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+//         ),
+//         const SizedBox(height: 16),
+//         Column(
+//           children: items.map((item) {
+//             return OrderItemCard(
+//               item: item,
+//               currencyRate: currencyRate,
+//               currencyFormat: currencyFormat,
+//             );
+//           }).toList(),
+//         ),
+//       ],
+//     );
+//   }
+//
+//
+//
+//   Widget _buildOrderDetails(BuildContext context, String orderDateStr) {
+//     String formattedDate = orderDateStr;
+//     try {
+//       final dateTime = DateTime.parse(orderDateStr);
+//       formattedDate = DateFormat('MMMM d, yyyy').format(dateTime);
+//     } catch (_) {}
+//
+//     return Column(
+//       crossAxisAlignment: CrossAxisAlignment.start,
+//       children: [
+//         Text('Order details:', style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.bold)),
+//         const SizedBox(height: 4),
+//         Text('Order Date: $formattedDate', style: Theme.of(context).textTheme.bodyMedium),
+//       ],
+//     );
+//   }
+//
+//   Widget _buildAddresses(BuildContext context, Address? shipping, Address? billing) {
+//     return Row(
+//       crossAxisAlignment: CrossAxisAlignment.start,
+//       children: [
+//         Expanded(child: _buildAddressColumn(context, 'Shipping Address', shipping)),
+//         const SizedBox(width: 16),
+//         Expanded(child: _buildAddressColumn(context, 'Billing Address', billing)),
+//       ],
+//     );
+//   }
+//
+//   Widget _buildAddressColumn(BuildContext context, String title, Address? address) {
+//     if (address == null) return const SizedBox.shrink();
+//     final bodyStyle = Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.4);
+//     return Column(
+//       crossAxisAlignment: CrossAxisAlignment.start,
+//       children: [
+//         Text(title, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600, fontSize: 20)),
+//         const SizedBox(height: 12),
+//         Text(address.name, style: bodyStyle),
+//         Text(address.street, style: bodyStyle),
+//         Text(address.cityPostcode, style: bodyStyle),
+//         Text(address.country, style: bodyStyle),
+//         Text(address.telephone, style: bodyStyle),
+//       ],
+//     );
+//   }
+//
+//   Widget _buildMethods(BuildContext context, String shippingMethod, PaymentMethod paymentMethod) {
+//     return Row(
+//       crossAxisAlignment: CrossAxisAlignment.start,
+//       children: [
+//         Expanded(
+//           child: Column(
+//             crossAxisAlignment: CrossAxisAlignment.start,
+//             children: [
+//               Text('Shipping Method', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600, fontSize: 20)),
+//               const SizedBox(height: 12),
+//               Text(shippingMethod, style: Theme.of(context).textTheme.bodyMedium),
+//             ],
+//           ),
+//         ),
+//         const SizedBox(width: 16),
+//         Expanded(
+//           child: Column(
+//             crossAxisAlignment: CrossAxisAlignment.start,
+//             children: [
+//               Text('Payment Method', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600, fontSize: 20)),
+//               const SizedBox(height: 12),
+//               Text(paymentMethod.title, style: Theme.of(context).textTheme.bodyMedium),
+//             ],
+//           ),
+//         ),
+//       ],
+//     );
+//   }
+//
+//   Widget _buildTotals(
+//       BuildContext context,
+//       Totals totals,
+//       double currencyRate,
+//       NumberFormat currencyFormat, {
+//         String? couponCode, // ✅ Correctly placed inside braces
+//       }) {
+//     final textStyle = Theme.of(context).textTheme.bodyLarge;
+//     final grandTotalStyle =
+//     textStyle?.copyWith(fontWeight: FontWeight.bold, fontSize: 20);
+//
+//     // Apply currency conversion before formatting
+//     final convertedSubtotal = totals.subtotal * currencyRate;
+//     final convertedShipping = totals.shipping * currencyRate;
+//     final convertedDiscount = totals.discount * currencyRate;
+//     final convertedGrandTotal = totals.grandTotal * currencyRate;
+//
+//     return Align(
+//       alignment: Alignment.centerRight,
+//       child: SizedBox(
+//         width: 300,
+//         child: Column(
+//           children: [
+//             _buildKeyValueRow(
+//               'Subtotal',
+//               currencyFormat.format(convertedSubtotal),
+//               context: context,
+//               style: textStyle,
+//             ),
+//             const SizedBox(height: 8),
+//             _buildKeyValueRow(
+//               'Shipping & Handling',
+//               currencyFormat.format(convertedShipping),
+//               context: context,
+//               style: textStyle,
+//             ),
+//
+//             // ✅ Conditional Discount Row with Coupon Code
+//             if (totals.discount > 0) ...[
+//               const SizedBox(height: 8),
+//               _buildKeyValueRow(
+//                 couponCode != null && couponCode.isNotEmpty
+//                     ? 'Discount ($couponCode)'
+//                     : 'Discount',
+//                 '-${currencyFormat.format(convertedDiscount)}',
+//                 context: context,
+//                 style: textStyle?.copyWith(color: Colors.black),
+//               ),
+//             ],
+//
+//             const Divider(height: 24, thickness: 1),
+//             _buildKeyValueRow(
+//               'Grand Total',
+//               currencyFormat.format(convertedGrandTotal),
+//               context: context,
+//               style: grandTotalStyle,
+//             ),
+//           ],
+//         ),
+//       ),
+//     );
+//   }
+//   //live*
+//   // Widget _buildTotals(
+//   //     BuildContext context,
+//   //     Totals totals,
+//   //     double currencyRate,          // 👈 add currencyRate here
+//   //     NumberFormat currencyFormat,
+//   //     ) {
+//   //   final textStyle = Theme.of(context).textTheme.bodyLarge;
+//   //   final grandTotalStyle =
+//   //   textStyle?.copyWith(fontWeight: FontWeight.bold, fontSize: 20);
+//   //
+//   //   // Apply currency conversion before formatting
+//   //   final convertedSubtotal = totals.subtotal * currencyRate;
+//   //   final convertedShipping = totals.shipping * currencyRate;
+//   //   final convertedGrandTotal = totals.grandTotal * currencyRate;
+//   //
+//   //   return Align(
+//   //     alignment: Alignment.centerRight,
+//   //     child: SizedBox(
+//   //       width: 300,
+//   //       child: Column(
+//   //         children: [
+//   //           _buildKeyValueRow(
+//   //             'Subtotal',
+//   //             currencyFormat.format(convertedSubtotal),
+//   //             context: context,
+//   //             style: textStyle,
+//   //           ),
+//   //           const SizedBox(height: 8),
+//   //           _buildKeyValueRow(
+//   //             'Shipping & Handling',
+//   //             currencyFormat.format(convertedShipping),
+//   //             context: context,
+//   //             style: textStyle,
+//   //           ),
+//   //           const Divider(height: 24, thickness: 1),
+//   //           _buildKeyValueRow(
+//   //             'Grand Total',
+//   //             currencyFormat.format(convertedGrandTotal),
+//   //             context: context,
+//   //             style: grandTotalStyle,
+//   //           ),
+//   //         ],
+//   //       ),
+//   //     ),
+//   //   );
+//   // }
+//
+//
+//
+//   Widget _buildKeyValueRow(String label, String value, {required BuildContext context, TextStyle? style}) {
+//     final effectiveStyle = style ?? Theme.of(context).textTheme.bodyMedium;
+//     return Row(
+//       children: [
+//         Expanded(child: Text(label, style: effectiveStyle)),
+//         Text(value, style: effectiveStyle),
+//       ],
+//     );
+//   }
+// }
+//
+// // =========================================================================
+// // ✅ NEW STATEFUL WIDGET FOR DISPLAYING A SINGLE ORDER ITEM WITH ITS IMAGE
+// // =========================================================================
+// class OrderItemCard extends StatefulWidget {
+//   final OrderItem item;
+//   final double currencyRate;
+//   final NumberFormat currencyFormat;
+//
+//   const OrderItemCard({
+//     Key? key,
+//     required this.item,
+//     required this.currencyRate,
+//     required this.currencyFormat,
+//   }) : super(key: key);
+//
+//   @override
+//   State<OrderItemCard> createState() => _OrderItemCardState();
+// }
+//
+// class _OrderItemCardState extends State<OrderItemCard> {
+//   final ApiService _apiService = ApiService();
+//   String? _imageUrl;
+//   bool _isLoading = true;
+//
+//   @override
+//   void initState() {
+//     super.initState();
+//     _fetchProductImage();
+//   }
+//
+//   Future<void> _fetchProductImage() async {
+//     final String fullSku = widget.item.sku;
+//     // Extract the base SKU (e.g., "ABC-123" from "ABC-123-Small")
+//     final String baseSku = fullSku.split('-').first.trim();
+//
+//     try {
+//       final images = await _apiService.fetchProductImages(baseSku);
+//       if (mounted) {
+//         setState(() {
+//           if (images.isNotEmpty) {
+//             _imageUrl = images.first.imageUrl;
+//           }
+//           _isLoading = false;
+//         });
+//       }
+//     } catch (e) {
+//       print("Error fetching image for order item SKU $baseSku: $e");
+//       if (mounted) {
+//         setState(() {
+//           _isLoading = false;
+//         });
+//       }
+//     }
+//   }
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     final textTheme = Theme.of(context).textTheme;
+//     final item = widget.item;
+//     final convertedPrice = item.price * widget.currencyRate;
+//     final convertedSubtotal = item.subtotal * widget.currencyRate;
+//
+//     return Container(
+//       margin: const EdgeInsets.only(bottom: 16.0),
+//       padding: const EdgeInsets.all(12.0),
+//       decoration: BoxDecoration(
+//         border: Border.all(color: Colors.grey.shade300),
+//         borderRadius: BorderRadius.circular(8.0),
+//       ),
+//       child: Column(
+//         children: [
+//           Row(
+//             crossAxisAlignment: CrossAxisAlignment.start,
+//             children: [
+//               SizedBox(
+//                 width: 80,
+//                 height: 100,
+//                 child: ClipRRect(
+//                   borderRadius: BorderRadius.circular(4.0),
+//                   child: _isLoading
+//                       ? Container(color: Colors.grey[200]) // Placeholder while loading
+//                       : _imageUrl != null
+//                       ? CachedNetworkImage(
+//                     imageUrl: _imageUrl!,
+//                     fit: BoxFit.cover,
+//                     placeholder: (context, url) => Container(color: Colors.grey[200]),
+//                     errorWidget: (context, url, error) => Container(
+//                       color: Colors.grey[200],
+//                       child: const Icon(Icons.image_not_supported, color: Colors.grey),
+//                     ),
+//                   )
+//                       : Container( // Fallback if no image found
+//                     color: Colors.grey[200],
+//                     child: const Icon(Icons.image_not_supported, color: Colors.grey),
+//                   ),
+//                 ),
+//               ),
+//               const SizedBox(width: 12),
+//               Expanded(
+//                 child: Column(
+//                   crossAxisAlignment: CrossAxisAlignment.start,
+//                   children: [
+//                     Text(
+//                       item.name,
+//                       style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+//                       maxLines: 2,
+//                       overflow: TextOverflow.ellipsis,
+//                     ),
+//                     const SizedBox(height: 4),
+//                     if (item.options.isNotEmpty) ...[
+//                       Text(item.options, style: textTheme.bodyMedium),
+//                       const SizedBox(height: 4),
+//                     ],
+//                     Text(
+//                       'SKU: ${item.sku}',
+//                       style: textTheme.bodySmall?.copyWith(color: Colors.grey.shade600),
+//                     ),
+//                   ],
+//                 ),
+//               ),
+//             ],
+//           ),
+//           const Divider(height: 24),
+//           Row(
+//             mainAxisAlignment: MainAxisAlignment.spaceBetween,
+//             children: [
+//               _buildMetric('Price', widget.currencyFormat.format(convertedPrice), context),
+//               _buildMetric('Qty', item.qty.toString(), context),
+//               _buildMetric('Subtotal', widget.currencyFormat.format(convertedSubtotal), context, isBold: true),
+//             ],
+//           ),
+//         ],
+//       ),
+//     );
+//   }
+//
+//   Widget _buildMetric(String label, String value, BuildContext context, {bool isBold = false}) {
+//     final textTheme = Theme.of(context).textTheme;
+//     return Column(
+//       crossAxisAlignment: CrossAxisAlignment.start,
+//       children: [
+//         Text(
+//           label,
+//           style: textTheme.bodySmall?.copyWith(color: Colors.grey.shade600),
+//         ),
+//         const SizedBox(height: 2),
+//         Text(
+//           value,
+//           style: textTheme.bodyMedium?.copyWith(
+//             fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
+//           ),
+//         ),
+//       ],
+//     );
+//   }
+//
+//
+// }
 
 //22/8/2025
 // class OrderSuccessScreen extends StatefulWidget {

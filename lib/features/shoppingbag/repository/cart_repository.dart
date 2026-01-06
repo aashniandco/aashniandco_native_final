@@ -250,6 +250,7 @@ class CartRepository {
       // --- PATH FOR LOGGED-IN USERS (No change here) ---
       debugPrint("Fetching totals for LOGGED-IN user.");
       final url = Uri.parse('${ApiConstants.baseUrl}/V1/carts/mine/totals');
+     print("url>>>url");
       response = await ioClient.get(
         url,
         headers: {
@@ -319,43 +320,164 @@ class CartRepository {
   }
 
 
+  //16/12/2025
+  // Future<List<Map<String, dynamic>>> getCartItems() async {
+  //   final prefs = await SharedPreferences.getInstance();
+  //   final customerToken = prefs.getString('user_token');
+  //   final guestQuoteId = prefs.getString('guest_quote_id');
+  //
+  //   http.Response? response;
+  //
+  //   if (customerToken != null && customerToken.isNotEmpty) {
+  //     // --- LOGGED-IN USER ---
+  //     response = await ioClient.get(
+  //       Uri.parse('${ApiConstants.baseUrl}/V1/carts/mine/items'),
+  //
+  //       headers: await _getAuthHeaders(),
+  //     );
+  //     if (response.statusCode == 200) {
+  //       return (json.decode(response.body) as List).cast<Map<String, dynamic>>();
+  //     } else {
+  //       // A 404 for a logged-in user's cart means it's empty.
+  //       if (response.statusCode == 404) return [];
+  //       throw Exception("Failed to fetch user cart items: ${response.body}");
+  //     }
+  //   } else if (guestQuoteId != null && guestQuoteId.isNotEmpty) {
+  //     // --- GUEST USER ---
+  //     try {
+  //       print("guestQuoteId>>>>>$guestQuoteId");
+  //       // print("guestItemId>>$itemId");
+  //       final guestCart = await fetchGuestCart(guestQuoteId);
+  //       final items = guestCart['items'] as List?;
+  //       return items?.cast<Map<String, dynamic>>() ?? [];
+  //     } catch (e) {
+  //       // If fetching the guest cart fails (e.g., it expired), treat it as empty.
+  //       return [];
+  //     }
+  //   } else {
+  //     // --- NO ACTIVE SESSION ---
+  //     return [];
+  //   }
+  // }
 
+// ✅ UPDATED: Fetches items and ensures Image URLs are populated
   Future<List<Map<String, dynamic>>> getCartItems() async {
     final prefs = await SharedPreferences.getInstance();
     final customerToken = prefs.getString('user_token');
     final guestQuoteId = prefs.getString('guest_quote_id');
 
-    http.Response? response;
+    List<Map<String, dynamic>> items = [];
 
+    // 1. FETCH RAW ITEMS
     if (customerToken != null && customerToken.isNotEmpty) {
       // --- LOGGED-IN USER ---
-      response = await ioClient.get(
+      final response = await ioClient.get(
         Uri.parse('${ApiConstants.baseUrl}/V1/carts/mine/items'),
-
         headers: await _getAuthHeaders(),
       );
       if (response.statusCode == 200) {
-        return (json.decode(response.body) as List).cast<Map<String, dynamic>>();
-      } else {
-        // A 404 for a logged-in user's cart means it's empty.
-        if (response.statusCode == 404) return [];
+        items = (json.decode(response.body) as List).cast<Map<String, dynamic>>();
+      } else if (response.statusCode != 404) {
         throw Exception("Failed to fetch user cart items: ${response.body}");
       }
     } else if (guestQuoteId != null && guestQuoteId.isNotEmpty) {
       // --- GUEST USER ---
       try {
-        print("guestQuoteId>>>>>$guestQuoteId");
-        // print("guestItemId>>$itemId");
         final guestCart = await fetchGuestCart(guestQuoteId);
-        final items = guestCart['items'] as List?;
-        return items?.cast<Map<String, dynamic>>() ?? [];
+        final rawItems = guestCart['items'] as List?;
+        items = rawItems?.cast<Map<String, dynamic>>() ?? [];
       } catch (e) {
-        // If fetching the guest cart fails (e.g., it expired), treat it as empty.
-        return [];
+        items = [];
       }
-    } else {
-      // --- NO ACTIVE SESSION ---
-      return [];
+    }
+
+    // 2. ENRICH ITEMS WITH IMAGES (The Fix)
+    // If the cart API didn't return an image, we fetch the product details by SKU.
+    if (items.isNotEmpty) {
+      final List<Future<void>> imageFutures = [];
+
+      for (var item in items) {
+        // Check if image is missing
+        bool hasImage = item.containsKey('image_url') ||
+            (item.containsKey('extension_attributes') && item['extension_attributes']['image_url'] != null);
+
+        if (!hasImage) {
+          imageFutures.add(_fetchAndAttachImage(item));
+        }
+      }
+
+      // Wait for all image API calls to finish parallelly (fast)
+      if (imageFutures.isNotEmpty) {
+        await Future.wait(imageFutures);
+      }
+    }
+
+    return items;
+  }
+
+  // 🔹 HELPER: Fetches Product Details to find the Image
+// 🔹 HELPER: Fetches Product Images using your CUSTOM Magento API
+  // 🔹 HELPER: Fetches Product Images using your CUSTOM Magento API
+// 🔹 HELPER: Fetches Product Images (Fixes 401 Error & SKU Issue)
+  Future<void> _fetchAndAttachImage(Map<String, dynamic> item) async {
+    String? sku = item['sku'];
+    if (sku == null) return;
+
+    // 1. SKU CLEANING LOGIC (Crucial for "Free Size" items)
+    // If SKU is "BERJUN25D130365-Free Size", we need "BERJUN25D130365" to find images.
+    if (sku.contains('-')) {
+      // detailed log to confirm this runs
+      // print("✂️ Cleaning SKU from '$sku' to '${sku.split('-')[0]}'");
+      sku = sku.split('-')[0].trim();
+    }
+
+    try {
+      // 2. USE YOUR CUSTOM IMAGE API (It is lighter and usually allows anonymous access)
+      final uri = Uri.parse('${ApiConstants.baseUrl}/V1/products/${Uri.encodeComponent(sku!)}/images');
+
+      // 3. ADD HEADERS (Fixes 401 Unauthorized)
+      // Even for public APIs, passing the token helps Magento context
+      final prefs = await SharedPreferences.getInstance();
+      final customerToken = prefs.getString('user_token');
+
+      Map<String, String> headers = {
+        'Content-Type': 'application/json',
+      };
+
+      if (customerToken != null && customerToken.isNotEmpty) {
+        headers['Authorization'] = 'Bearer $customerToken';
+      }
+
+      final response = await ioClient.get(uri, headers: headers);
+
+      if (response.statusCode == 200) {
+        final List<dynamic> imagesData = json.decode(response.body);
+
+        if (imagesData.isNotEmpty) {
+          // Find the main image (usually position 1 or the first enabled one)
+          final validImages = imagesData.where((img) => img['disabled'] == false).toList();
+
+          if (validImages.isNotEmpty) {
+            final mainImage = validImages[0];
+            final String imageUrl = mainImage['image_url'];
+
+            // 4. INJECT IMAGE INTO ITEM
+            item['image_url'] = imageUrl;
+
+            // Also put it in extension_attributes to be safe
+            if (item['extension_attributes'] == null) {
+              item['extension_attributes'] = {};
+            }
+            item['extension_attributes']['image_url'] = imageUrl;
+
+            // print("✅ Successfully attached image for $sku");
+          }
+        }
+      } else {
+        print("⚠️ Failed to fetch image for $sku. Status: ${response.statusCode}");
+      }
+    } catch (e) {
+      print("❌ Error processing image for $sku: $e");
     }
   }
 

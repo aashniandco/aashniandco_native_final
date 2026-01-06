@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 
 import '../../../constants/api_constants.dart';
 import '../../newin/model/new_in_model.dart';
+import '../../shoppingbag/model/countries.dart';
 import '../model/category_data.dart';
 import '../model/category_model.dart';
 import '../model/filter_model.dart';
@@ -21,6 +22,40 @@ class ApiService {
   // final String _baseUrl = "https://stage.aashniandco.com/rest/V1";
   // --- NEW METHOD TO FETCH PRODUCTS FROM SOLR ---
 
+  // Inside your ApiService class
+  Future<Map<String, double>> fetchPriceRange(String categoryId) async {
+    final url = Uri.parse('${ApiConstants.baseUrl}/V1/solr/category/$categoryId/filters');
+
+    try {
+      HttpClient httpClient = HttpClient()..badCertificateCallback = (cert, host, port) => true;
+      IOClient ioClient = IOClient(httpClient);
+      final response = await ioClient.get(url);
+
+      if (response.statusCode == 200) {
+        final List<dynamic> rawData = json.decode(response.body);
+
+        double minPrice = 0.0;
+        double maxPrice = 10000.0; // Default fallback
+
+        for (var item in rawData) {
+          if (item is Map<String, dynamic>) {
+            if (item.containsKey('min_price')) {
+              minPrice = double.tryParse(item['min_price'].toString()) ?? 0.0;
+            }
+            if (item.containsKey('max_price')) {
+              maxPrice = double.tryParse(item['max_price'].toString()) ?? 10000.0;
+            }
+          }
+        }
+
+        return {'min': minPrice, 'max': maxPrice};
+      } else {
+        throw Exception('Failed to load price data');
+      }
+    } catch (e) {
+      throw Exception('Error fetching price: $e');
+    }
+  }
   Future<List<ProductImage>> fetchProductImages(String sku) async {
 
     final encodedSku = Uri.encodeComponent(sku);
@@ -202,7 +237,7 @@ class ApiService {
 
   Future<List<Map<String, dynamic>>> fetchSuggestionsByShortDesc(String query) async {
     final url = Uri.parse('${ApiConstants.baseUrl}/V1/solr/suggestbyshortdesc');
-    print("url>>>$url");
+    print("url>>>>$url");
     final body = jsonEncode({'skuData': query});
 
     print('Requesting suggestions with body: $body');
@@ -457,19 +492,22 @@ class ApiService {
   Future<List<FilterType>> fetchAvailableFilterTypes(String categoryId) async {
     // Whitelist of filters to display, in the desired order.
     const Map<String, String> allowedFiltersMap = {
+
       'themes': 'Themes',
       'categories': 'Category',
+      'genders': 'Gender',
       'designers': 'Designer',
       'colors': 'Color',
       'sizes': 'Size',
-      'delivery_times': 'Delivery',
+      // 'delivery_times': 'Delivery',
+      'child_delivery_time': 'Delivery',
       'price': 'Price',
       'a_co_edit': 'A+CO Edits',
       'occasions': 'Occasions'
     };
 
     final url = Uri.parse('${ApiConstants.baseUrl}/V1/solr/category/$categoryId/filters');
-
+   print("url>>>$url");
     try {
       HttpClient httpClient = HttpClient()..badCertificateCallback = (cert, host, port) => true;
       IOClient ioClient = IOClient(httpClient);
@@ -491,9 +529,24 @@ class ApiService {
           final String filterKey = entry.key;
           final String label = entry.value;
 
-          // Check if our whitelisted filter key is present in the API response
-          if (availableApiKeys.contains(filterKey)) {
-            // ✅ FIX: Create FilterType instance using 'key' to match the model
+        //   // Check if our whitelisted filter key is present in the API response
+        //   if (availableApiKeys.contains(filterKey)) {
+        //     // ✅ FIX: Create FilterType instance using 'key' to match the model
+        //     result.add(FilterType(key: filterKey, label: label));
+        //   }
+        // }
+
+          // 2. CHECK: logic to map internal 'child_delivery_time' to API's 'delivery_times'
+          String apiCheckKey = filterKey;
+          if (filterKey == 'child_delivery_time') {
+            apiCheckKey = 'delivery_times';
+          }
+
+          if (filterKey == 'price') {
+            apiCheckKey = 'min_price';
+          }
+
+          if (availableApiKeys.contains(apiCheckKey)) {
             result.add(FilterType(key: filterKey, label: label));
           }
         }
@@ -517,10 +570,9 @@ class ApiService {
 // In your ApiService.dart file
 
 
-
   Future<List<FilterItem>> fetchGenericFilter({
     required String categoryId,
-    required String filterType,
+    required String filterType, // This will come in as 'child_delivery_time'
   }) async {
     final url = Uri.parse('${ApiConstants.baseUrl}/V1/solr/category/$categoryId/filters');
 
@@ -534,61 +586,53 @@ class ApiService {
         final List<FilterItem> itemList = [];
         Map<String, dynamic> childCategoriesData = {};
 
-        print("\n===============================");
-        print("🔍 RAW FILTER RESPONSE (PRETTY)");
-        print("===============================");
-        for (var i = 0; i < rawData.length; i++) {
-          print('---- Item $i ----');
-          print(const JsonEncoder.withIndent('  ').convert(rawData[i]));
-        }
-
-        // ✅ STEP 1 (FIXED): Pre-scan for child categories FIRST
-        // This loop ensures childCategoriesData is populated before we need it.
+        // Pre-scan for child categories
         if (filterType == 'categories') {
           for (var item in rawData) {
             if (item is Map<String, dynamic> && item.containsKey('child_categories')) {
               childCategoriesData = item['child_categories'];
-              print("\n📦 Child Categories Mapping Found and Stored.");
-              break; // We found it, no need to keep looping for this task
+              break;
             }
           }
         }
 
-        // ✅ STEP 2 (ORIGINAL LOGIC): Now, process all items
+        // ✅ 3. DETERMINE JSON KEY:
+        // The app asks for 'child_delivery_time', but we must read 'delivery_times' from JSON.
+        String jsonKeyToRead = filterType;
+        if (filterType == 'child_delivery_time') {
+          jsonKeyToRead = 'delivery_times';
+        }
+
         for (var item in rawData) {
           if (item is! Map<String, dynamic>) continue;
 
-          // Note: The logic that was here to find children is now removed,
-          // as we have already done it in the pre-scan loop above.
-
-          // Handle other nested filter types (this is fine)
-          if (filterType == 'delivery_times' && item.containsKey('child_delivery_time')) {
-            filterType = 'child_delivery_time';
-          }
-
-          // Process the main filter key
-          if (item.containsKey(filterType)) {
-            print("\nFound filter data for '$filterType'. Determining format...");
-            final dynamic filterValue = item[filterType];
+          // Check using the mapped key
+          if (item.containsKey(jsonKeyToRead)) {
+            final dynamic filterValue = item[jsonKeyToRead];
 
             if (filterValue is Map<String, dynamic>) {
-              print("Parsing as Map format...");
               filterValue.forEach((key, value) {
-                final parts = value.toString().split('|');
-                String finalId;
-                String finalName;
+                // Default logic
+                String finalId = key;
+                String finalName = value.toString();
 
-                if (parts.length == 2) {
-                  finalId = parts[0].trim();
-                  finalName = parts[1].trim();
-                } else {
-                  finalId = key;
-                  finalName = value.toString();
+                // Handle pipe separator (ID|Name)
+                if (value.toString().contains('|')) {
+                  final parts = value.toString().split('|');
+                  if (parts.length == 2) {
+                    finalId = parts[0].trim();
+                    finalName = parts[1].trim();
+                  }
                 }
 
-                // Handle children for categories
+                // ✅ 4. SPECIAL ID LOGIC FOR DELIVERY:
+                // Solr requires the string value (e.g. "1-2 Weeks") for this field, not the ID (2).
+                if (filterType == 'child_delivery_time') {
+                  finalId = '"$finalName"'; // Set ID = Name (with quotes)
+                }
+
+                // Child Categories Logic
                 List<FilterItem> children = [];
-                // NOW, this check will work because childCategoriesData is already populated!
                 if (filterType == 'categories' && childCategoriesData.containsKey(key)) {
                   final Map<String, dynamic> childMap = childCategoriesData[key];
                   childMap.forEach((childId, childName) {
@@ -597,16 +641,12 @@ class ApiService {
                 }
 
                 itemList.add(FilterItem(id: finalId, name: finalName, children: children));
-                // This log will now show the correct child count
-                print("✅ Added parent '${finalName}' with ${children.length} children.");
               });
             }
-            // ... (The rest of your list processing logic is fine)
           }
         }
 
-        // ... (The rest of your function: deduplication and sorting, is fine and does not need changes)
-        // ✅ STEP 4: Remove duplicates (case-insensitive)
+        // Remove duplicates
         final seenNames = <String>{};
         final uniqueList = <FilterItem>[];
         for (final item in itemList) {
@@ -617,28 +657,145 @@ class ApiService {
           }
         }
 
-        // ✅ STEP 5: Sort (custom or default)
-        // ... sorting logic ...
-
-
-        print("\n===============================");
-        print("📊 FINAL FILTER SUMMARY");
-        print("===============================");
-        for (final item in uniqueList) {
-          print("🧩 ${item.name} (${item.id}) → ${item.children.length} children");
-        }
-
-        print('✅ Filtered list: ${uniqueList.length} unique items (sorted)');
         return uniqueList;
-
       } else {
         throw Exception('Failed to load filter: Status code ${response.statusCode}');
       }
     } catch (e) {
-      print('❌ Error fetching filter type "$filterType": $e');
+      print('Error fetching filter type "$filterType": $e');
       throw Exception('Failed to load filter data.');
     }
   }
+  //8/12/2025
+
+  // Future<List<FilterItem>> fetchGenericFilter({
+  //   required String categoryId,
+  //   required String filterType,
+  // }) async {
+  //   final url = Uri.parse('${ApiConstants.baseUrl}/V1/solr/category/$categoryId/filters');
+  //
+  //   try {
+  //     HttpClient httpClient = HttpClient()..badCertificateCallback = (cert, host, port) => true;
+  //     IOClient ioClient = IOClient(httpClient);
+  //     final response = await ioClient.get(url);
+  //
+  //     if (response.statusCode == 200) {
+  //       final List<dynamic> rawData = json.decode(response.body);
+  //       final List<FilterItem> itemList = [];
+  //       Map<String, dynamic> childCategoriesData = {};
+  //
+  //       print("\n===============================");
+  //       print("🔍 RAW FILTER RESPONSE (PRETTY)");
+  //       print("===============================");
+  //       for (var i = 0; i < rawData.length; i++) {
+  //         print('---- Item $i ----');
+  //         print(const JsonEncoder.withIndent('  ').convert(rawData[i]));
+  //       }
+  //
+  //       // ✅ STEP 1 (FIXED): Pre-scan for child categories FIRST
+  //       // This loop ensures childCategoriesData is populated before we need it.
+  //       if (filterType == 'categories') {
+  //         for (var item in rawData) {
+  //           if (item is Map<String, dynamic> && item.containsKey('child_categories')) {
+  //             childCategoriesData = item['child_categories'];
+  //             print("\n📦 Child Categories Mapping Found and Stored.");
+  //             break; // We found it, no need to keep looping for this task
+  //           }
+  //         }
+  //       }
+  //
+  //       // 3. SETUP: Determine which key to look for in the JSON
+  //       // If app requests 'child_delivery_time', we must look for 'delivery_times' in JSON
+  //       String actualJsonKey = filterType;
+  //       if (filterType == 'child_delivery_time') {
+  //         actualJsonKey = 'delivery_times';
+  //       }
+  //
+  //       // ✅ STEP 2 (ORIGINAL LOGIC): Now, process all items
+  //       for (var item in rawData) {
+  //         if (item is! Map<String, dynamic>) continue;
+  //
+  //         // Note: The logic that was here to find children is now removed,
+  //         // as we have already done it in the pre-scan loop above.
+  //
+  //         // Handle other nested filter types (this is fine)
+  //         if (filterType == 'delivery_times' && item.containsKey('child_delivery_time')) {
+  //           filterType = 'child_delivery_time';
+  //         }
+  //
+  //         // Process the main filter key
+  //         if (item.containsKey(filterType)) {
+  //           print("\nFound filter data for '$filterType'. Determining format...");
+  //           final dynamic filterValue = item[filterType];
+  //
+  //           if (filterValue is Map<String, dynamic>) {
+  //             print("Parsing as Map format...");
+  //             filterValue.forEach((key, value) {
+  //               final parts = value.toString().split('|');
+  //               String finalId;
+  //               String finalName;
+  //
+  //               if (parts.length == 2) {
+  //                 finalId = parts[0].trim();
+  //                 finalName = parts[1].trim();
+  //               } else {
+  //                 finalId = key;
+  //                 finalName = value.toString();
+  //               }
+  //
+  //               // Handle children for categories
+  //               List<FilterItem> children = [];
+  //               // NOW, this check will work because childCategoriesData is already populated!
+  //               if (filterType == 'categories' && childCategoriesData.containsKey(key)) {
+  //                 final Map<String, dynamic> childMap = childCategoriesData[key];
+  //                 childMap.forEach((childId, childName) {
+  //                   children.add(FilterItem(id: childId, name: childName));
+  //                 });
+  //               }
+  //
+  //               itemList.add(FilterItem(id: finalId, name: finalName, children: children));
+  //               // This log will now show the correct child count
+  //               print("✅ Added parent '${finalName}' with ${children.length} children.");
+  //             });
+  //           }
+  //           // ... (The rest of your list processing logic is fine)
+  //         }
+  //       }
+  //
+  //       // ... (The rest of your function: deduplication and sorting, is fine and does not need changes)
+  //       // ✅ STEP 4: Remove duplicates (case-insensitive)
+  //       final seenNames = <String>{};
+  //       final uniqueList = <FilterItem>[];
+  //       for (final item in itemList) {
+  //         final normalizedName = item.name.trim().toLowerCase();
+  //         if (!seenNames.contains(normalizedName)) {
+  //           seenNames.add(normalizedName);
+  //           uniqueList.add(item);
+  //         }
+  //       }
+  //
+  //       // ✅ STEP 5: Sort (custom or default)
+  //       // ... sorting logic ...
+  //
+  //
+  //       print("\n===============================");
+  //       print("📊 FINAL FILTER SUMMARY");
+  //       print("===============================");
+  //       for (final item in uniqueList) {
+  //         print("🧩 ${item.name} (${item.id}) → ${item.children.length} children");
+  //       }
+  //
+  //       print('✅ Filtered list: ${uniqueList.length} unique items (sorted)');
+  //       return uniqueList;
+  //
+  //     } else {
+  //       throw Exception('Failed to load filter: Status code ${response.statusCode}');
+  //     }
+  //   } catch (e) {
+  //     print('❌ Error fetching filter type "$filterType": $e');
+  //     throw Exception('Failed to load filter data.');
+  //   }
+  // }
 
 
   //3/11/2025
@@ -898,35 +1055,111 @@ class ApiService {
   // ✅ NEW METHOD TO FETCH CATEGORY METADATA
   // ✅ FINAL ROBUST METHOD - HANDLES UNEXPECTED ARRAY RESPONSE
 
-  Future<Map<String, dynamic>> fetchCategoryMetadataByName(String categoryName) async {
-    // --- NEW LOGIC STARTS HERE ---
 
-    // 1. Look up the correct data from our reliable local map first.
-    final CategoryData? categoryData = CategoryMapping.getDataByName(categoryName);
+  Future<String?> fetchRepresentativeCategoryIdForDesigner(String designerName) async {
+    // This is a simplified example.
+    // Ideally, your backend would have an endpoint like:
+    // /V1/solr/designer-representative-category/{designerName}
+    // which returns a category ID that can be used for filtering.
+
+    // For now, let's try to simulate based on your existing setup.
+    // Option A: Try to find a global "all products" category ID
+    // If your system has a top-level category that acts as a container for ALL products,
+    // and fetching filters for it works, use that.
+    try {
+      // Attempt to get metadata for a known generic category like 'all-products' or 'fashion'
+      // You need to replace 'YOUR_GLOBAL_CATEGORY_ID' or 'YOUR_GLOBAL_CATEGORY_NAME'
+      // with an actual category in your system that represents a broad range.
+      // For example, if you have a "Women" category (ID: 123) that contains all women's wear,
+      // and your designer primarily sells women's wear, you could use that.
+      final globalCategoryMetadata = await fetchCategoryMetadataByName('women'); // Example, replace with actual
+      if (globalCategoryMetadata.containsKey('cat_id')) {
+        print('Using global category ID for designer filters: ${globalCategoryMetadata['cat_id']}');
+        return globalCategoryMetadata['cat_id'].toString();
+      }
+    } catch (e) {
+      print('Failed to get global category metadata for designer: $e');
+    }
+
+    // Option B: If 'all' was intended to work as a generic ID, but it returns 404,
+    // you need to fix your backend to handle a generic 'all' or 'default' category ID.
+    // If 'all' is supposed to represent the highest level, you might need a special ID for it.
+    // For the purpose of getting _some_ filters, let's try a hardcoded one if known.
+    // For example, if '1372' (New In) actually works for broad filters, you might use it
+    // as a temporary fallback, but this is less ideal.
+    // return '1372'; // Not ideal, but a placeholder if 'new-in' has broad filters.
+
+    // Option C: A more sophisticated approach would involve:
+    // 1. Fetching a sample of products by the designer.
+    // 2. Extracting their category IDs.
+    // 3. Finding the most common *parent* category ID among them.
+    // This is too complex for a quick fix here.
+
+    // For now, let's just return a placeholder or null if a suitable ID isn't found easily.
+    // You MUST ensure your `fetchAvailableFilterTypes` can handle the ID you return here.
+    return null; // Or a specific ID known to work for general filters.
+  }
+  // In your ApiService class
+  Future<Map<String, dynamic>> fetchCategoryMetadataByName(String categoryName, {bool isDesignerScreen = false}) async {
+
+    if (categoryName == "Filtered Results") {
+      print("⚠️ Skipping metadata fetch for 'Filtered Results'. Returning mock data.");
+      return {
+        'cat_name': 'Filtered Results',
+        'cat_id': '0', // Dummy ID
+        'pare_cat_id': '0',
+        'cat_level': 0,
+        'cat_url_key': 'filtered-results'
+      };
+    }
+
+    if (kDebugMode) {
+      print('--- fetchCategoryMetadataByName CALLED ---');
+      print('Input categoryName: "$categoryName"');
+      print('isDesignerScreen: $isDesignerScreen'); // Added for debugging
+    }
 
     String urlKey;
 
-    if (categoryData != null) {
-      // 2. If we found a mapping, use its GUARANTEED correct urlKey.
-      print("Found mapping for '$categoryName'. Using correct urlKey: '${categoryData.urlKey}'");
-      urlKey = categoryData.urlKey;
+    // --- NEW LOGIC HERE ---
+    if (isDesignerScreen) {
+      urlKey = 'designers';
+      if (kDebugMode) {
+        print("Detected designer screen. Using specific urlKey: 'designers'");
+      }
     } else {
-      // 3. If no mapping exists (for a sub-category, for example), fall back to the old dynamic generation.
-      // This makes your function robust for both top-level and deeper categories.
-      print("No mapping found for '$categoryName'. Generating urlKey dynamically.");
-      urlKey = categoryName
-          .toLowerCase()
-          .replaceAll("'", "")
-          .replaceAll('&', 'and')
-          .replaceAll(RegExp(r'[\s_]+'), '-')
-          .replaceAll(RegExp(r'[^a-z0-9-]'), '');
+      final CategoryData? categoryData = CategoryMapping.getDataByName(categoryName);
+      if (categoryData != null) {
+        if (kDebugMode) {
+          print("Found mapping for '$categoryName'. Using correct urlKey: '${categoryData.urlKey}'");
+        }
+        urlKey = categoryData.urlKey;
+      } else {
+        if (kDebugMode) {
+          print("No mapping found for '$categoryName'. Generating urlKey dynamically.");
+        }
+        urlKey = categoryName
+            .toLowerCase()
+            .replaceAll("'", "")
+            .replaceAll('&', 'and')
+            .replaceAll(RegExp(r'[\s_]+'), '-')
+            .replaceAll(RegExp(r'[^a-z0-9-]'), '');
+      }
+    }
+    // --- END NEW LOGIC ---
+
+
+    if (urlKey.isEmpty) {
+      if (kDebugMode) {
+        print("Generated urlKey is empty. Using a default 'all-products' if applicable.");
+      }
+      urlKey = 'all-products';
     }
 
-    // --- END OF NEW LOGIC ---
-
-    // The rest of the function now uses the 'urlKey' variable, which will be correct.
     final url = Uri.parse('${ApiConstants.baseUrl}/V1/solr/category-by-url-key/$urlKey');
-    print('Requesting Category Metadata from URL:>> $url');
+    if (kDebugMode) {
+      print('Requesting Category Metadata from URL: $url');
+    }
 
     HttpClient httpClient = HttpClient();
     httpClient.badCertificateCallback = (cert, host, port) => true;
@@ -935,29 +1168,20 @@ class ApiService {
     try {
       final response = await ioClient.get(url);
 
-      print('Response Status Code: ${response.statusCode}');
-      print('Response Body:category-by-url-key ${response.body}');
+      if (kDebugMode) {
+        print('Response Status Code for "$urlKey": ${response.statusCode}');
+        print('Response Body for "$urlKey": ${response.body}');
+      }
 
       if (response.statusCode == 200) {
         final dynamic decodedBody = json.decode(response.body);
+        Map<String, dynamic> finalCategoryData;
 
-        // --- PARSING LOGIC FOR THE SPECIFIC ARRAY RESPONSE ---
         if (decodedBody is List && decodedBody.length >= 5) {
-          print("API returned a List. Parsing based on fixed order.");
-          // --- Parse default data from API ---
-          String catName = decodedBody[0].toString();
-          int catLevel = decodedBody[1];
-          String catUrlKey = decodedBody[2].toString();
-          String pareCatId = decodedBody[3].toString();
-          String catId = decodedBody[4].toString();
-
-          // --- Custom override for "New In" ---
-          if (catUrlKey.toLowerCase() == 'new-in' || catName.toLowerCase() == 'new in') {
-            print("🟡 Overriding category ID for 'New In' to 1372");
-            catId = '1372'; // ✅ Forced override
+          if (kDebugMode) {
+            print("API returned a List for '$urlKey'. Parsing based on fixed order.");
           }
-
-          return {
+          finalCategoryData = {
             'cat_name': decodedBody[0].toString(),
             'cat_level': decodedBody[1],
             'cat_url_key': decodedBody[2].toString(),
@@ -965,30 +1189,266 @@ class ApiService {
             'cat_id': decodedBody[4].toString(),
           };
         } else if (decodedBody is Map<String, dynamic>) {
-          print("API returned a Map as expected.");
-          return decodedBody;
+          if (kDebugMode) {
+            print("API returned a Map for '$urlKey' as expected.");
+          }
+          finalCategoryData = decodedBody;
         } else {
-          throw Exception('API returned an unexpected data format that could not be parsed.');
+          throw Exception('API for "$urlKey" returned an unexpected data format that could not be parsed.');
         }
+
+        if (finalCategoryData['cat_url_key']?.toLowerCase() == 'new-in' ||
+            finalCategoryData['cat_name']?.toLowerCase() == 'new in') {
+          if (kDebugMode) {
+            print("🟡 Overriding category ID for 'New In' to 1372 for '$urlKey'");
+          }
+          finalCategoryData['cat_id'] = '1372';
+        }
+
+        if (kDebugMode) {
+          print('Parsed Category Metadata for "$urlKey": $finalCategoryData');
+          print('pare_cat_id for "$urlKey": ${finalCategoryData['pare_cat_id']}');
+          print('--- END fetchCategoryMetadataByName ---');
+        }
+        return finalCategoryData;
+
       } else {
-        String errorMessage = 'Category not found: $categoryName';
+        String errorMessage = 'Category not found for urlKey: $urlKey (Original name: $categoryName)';
         try {
           final decodedError = json.decode(response.body);
           if (decodedError['message'] != null) { errorMessage = decodedError['message']; }
         } catch (_) { errorMessage = response.body; }
+        if (kDebugMode) {
+          print('API Error for "$urlKey": $errorMessage');
+          print('--- END fetchCategoryMetadataByName (Error) ---');
+        }
         throw Exception(errorMessage);
       }
     } catch (e, stackTrace) {
-      print('--- ERROR FETCHING CATEGORY METADATA ---');
-      print('Exception Type: ${e.runtimeType}');
-      print('Exception Object: $e');
-      print('Stack Trace: \n$stackTrace');
-      print('--- END ERROR ---');
-      throw Exception('Could not load category details. Please check the debug console.');
+      if (kDebugMode) {
+        print('--- ERROR FETCHING CATEGORY METADATA for "$urlKey" ---');
+        print('Exception Type: ${e.runtimeType}');
+        print('Exception Object: $e');
+        print('Stack Trace: \n$stackTrace');
+        print('--- END ERROR ---');
+      }
+      throw Exception('Could not load category details for "$categoryName". Please check the debug console.');
     } finally {
       ioClient.close();
     }
   }
+
+
+
+
+  // Future<Map<String, dynamic>> fetchCategoryMetadataByName(String categoryName) async {
+  //   if (kDebugMode) {
+  //     print('--- fetchCategoryMetadataByName CALLED ---');
+  //     print('Input categoryName: "$categoryName"');
+  //   }
+  //
+  //   final CategoryData? categoryData = CategoryMapping.getDataByName(categoryName);
+  //   String urlKey;
+  //
+  //   if (categoryData != null) {
+  //     if (kDebugMode) {
+  //       print("Found mapping for '$categoryName'. Using correct urlKey: '${categoryData.urlKey}'");
+  //     }
+  //     urlKey = categoryData.urlKey;
+  //   } else {
+  //     if (kDebugMode) {
+  //       print("No mapping found for '$categoryName'. Generating urlKey dynamically.");
+  //     }
+  //     urlKey = categoryName
+  //         .toLowerCase()
+  //         .replaceAll("'", "")
+  //         .replaceAll('&', 'and')
+  //         .replaceAll(RegExp(r'[\s_]+'), '-')
+  //         .replaceAll(RegExp(r'[^a-z0-9-]'), '');
+  //   }
+  //
+  //   if (urlKey.isEmpty) {
+  //     if (kDebugMode) {
+  //       print("Generated urlKey is empty. Using a default 'all-products' if applicable.");
+  //     }
+  //     urlKey = 'all-products';
+  //   }
+  //
+  //   final url = Uri.parse('${ApiConstants.baseUrl}/V1/solr/category-by-url-key/$urlKey');
+  //   if (kDebugMode) {
+  //     print('Requesting Category Metadata from URL: $url');
+  //   }
+  //
+  //   HttpClient httpClient = HttpClient();
+  //   httpClient.badCertificateCallback = (cert, host, port) => true;
+  //   IOClient ioClient = IOClient(httpClient);
+  //
+  //   try {
+  //     final response = await ioClient.get(url);
+  //
+  //     if (kDebugMode) {
+  //       print('Response Status Code for "$urlKey": ${response.statusCode}');
+  //       print('Response Body for "$urlKey": ${response.body}');
+  //     }
+  //
+  //     if (response.statusCode == 200) {
+  //       final dynamic decodedBody = json.decode(response.body);
+  //       Map<String, dynamic> finalCategoryData;
+  //
+  //       if (decodedBody is List && decodedBody.length >= 5) {
+  //         if (kDebugMode) {
+  //           print("API returned a List for '$urlKey'. Parsing based on fixed order.");
+  //         }
+  //         finalCategoryData = {
+  //           'cat_name': decodedBody[0].toString(),
+  //           'cat_level': decodedBody[1],
+  //           'cat_url_key': decodedBody[2].toString(),
+  //           'pare_cat_id': decodedBody[3].toString(),
+  //           'cat_id': decodedBody[4].toString(),
+  //         };
+  //       } else if (decodedBody is Map<String, dynamic>) {
+  //         if (kDebugMode) {
+  //           print("API returned a Map for '$urlKey' as expected.");
+  //         }
+  //         finalCategoryData = decodedBody;
+  //       } else {
+  //         throw Exception('API for "$urlKey" returned an unexpected data format that could not be parsed.');
+  //       }
+  //
+  //       if (finalCategoryData['cat_url_key']?.toLowerCase() == 'new-in' ||
+  //           finalCategoryData['cat_name']?.toLowerCase() == 'new in') {
+  //         if (kDebugMode) {
+  //           print("🟡 Overriding category ID for 'New In' to 1372 for '$urlKey'");
+  //         }
+  //         finalCategoryData['cat_id'] = '1372';
+  //       }
+  //
+  //       if (kDebugMode) {
+  //         print('Parsed Category Metadata for "$urlKey": $finalCategoryData');
+  //         print('pare_cat_id for "$urlKey": ${finalCategoryData['pare_cat_id']}');
+  //         print('--- END fetchCategoryMetadataByName ---');
+  //       }
+  //       return finalCategoryData;
+  //
+  //     } else {
+  //       String errorMessage = 'Category not found for urlKey: $urlKey (Original name: $categoryName)';
+  //       try {
+  //         final decodedError = json.decode(response.body);
+  //         if (decodedError['message'] != null) { errorMessage = decodedError['message']; }
+  //       } catch (_) { errorMessage = response.body; }
+  //       if (kDebugMode) {
+  //         print('API Error for "$urlKey": $errorMessage');
+  //         print('--- END fetchCategoryMetadataByName (Error) ---');
+  //       }
+  //       throw Exception(errorMessage);
+  //     }
+  //   } catch (e, stackTrace) {
+  //     if (kDebugMode) {
+  //       print('--- ERROR FETCHING CATEGORY METADATA for "$urlKey" ---');
+  //       print('Exception Type: ${e.runtimeType}');
+  //       print('Exception Object: $e');
+  //       print('Stack Trace: \n$stackTrace');
+  //       print('--- END ERROR ---');
+  //     }
+  //     throw Exception('Could not load category details for "$categoryName". Please check the debug console.');
+  //   } finally {
+  //     ioClient.close();
+  //   }
+  // }
+  //
+
+  //8/11/2025
+  // Future<Map<String, dynamic>> fetchCategoryMetadataByName(String categoryName) async {
+  //   // --- NEW LOGIC STARTS HERE ---
+  //
+  //   // 1. Look up the correct data from our reliable local map first.
+  //   final CategoryData? categoryData = CategoryMapping.getDataByName(categoryName);
+  //
+  //   String urlKey;
+  //
+  //   if (categoryData != null) {
+  //     // 2. If we found a mapping, use its GUARANTEED correct urlKey.
+  //     print("Found mapping for '$categoryName'. Using correct urlKey: '${categoryData.urlKey}'");
+  //     urlKey = categoryData.urlKey;
+  //   } else {
+  //     // 3. If no mapping exists (for a sub-category, for example), fall back to the old dynamic generation.
+  //     // This makes your function robust for both top-level and deeper categories.
+  //     print("No mapping found for '$categoryName'. Generating urlKey dynamically.");
+  //     urlKey = categoryName
+  //         .toLowerCase()
+  //         .replaceAll("'", "")
+  //         .replaceAll('&', 'and')
+  //         .replaceAll(RegExp(r'[\s_]+'), '-')
+  //         .replaceAll(RegExp(r'[^a-z0-9-]'), '');
+  //   }
+  //
+  //   // --- END OF NEW LOGIC ---
+  //
+  //   // The rest of the function now uses the 'urlKey' variable, which will be correct.
+  //   final url = Uri.parse('${ApiConstants.baseUrl}/V1/solr/category-by-url-key/$urlKey');
+  //   print('Requesting Category Metadata from URL:>> $url');
+  //
+  //   HttpClient httpClient = HttpClient();
+  //   httpClient.badCertificateCallback = (cert, host, port) => true;
+  //   IOClient ioClient = IOClient(httpClient);
+  //
+  //   try {
+  //     final response = await ioClient.get(url);
+  //
+  //     print('Response Status Code: ${response.statusCode}');
+  //     print('Response Body:category-by-url-key ${response.body}');
+  //
+  //     if (response.statusCode == 200) {
+  //       final dynamic decodedBody = json.decode(response.body);
+  //
+  //       // --- PARSING LOGIC FOR THE SPECIFIC ARRAY RESPONSE ---
+  //       if (decodedBody is List && decodedBody.length >= 5) {
+  //         print("API returned a List. Parsing based on fixed order.");
+  //         // --- Parse default data from API ---
+  //         String catName = decodedBody[0].toString();
+  //         int catLevel = decodedBody[1];
+  //         String catUrlKey = decodedBody[2].toString();
+  //         String pareCatId = decodedBody[3].toString();
+  //         String catId = decodedBody[4].toString();
+  //
+  //         // --- Custom override for "New In" ---
+  //         if (catUrlKey.toLowerCase() == 'new-in' || catName.toLowerCase() == 'new in') {
+  //           print("🟡 Overriding category ID for 'New In' to 1372");
+  //           catId = '1372'; // ✅ Forced override
+  //         }
+  //
+  //         return {
+  //           'cat_name': decodedBody[0].toString(),
+  //           'cat_level': decodedBody[1],
+  //           'cat_url_key': decodedBody[2].toString(),
+  //           'pare_cat_id': decodedBody[3].toString(),
+  //           'cat_id': decodedBody[4].toString(),
+  //         };
+  //       } else if (decodedBody is Map<String, dynamic>) {
+  //         print("API returned a Map as expected.");
+  //         return decodedBody;
+  //       } else {
+  //         throw Exception('API returned an unexpected data format that could not be parsed.');
+  //       }
+  //     } else {
+  //       String errorMessage = 'Category not found: $categoryName';
+  //       try {
+  //         final decodedError = json.decode(response.body);
+  //         if (decodedError['message'] != null) { errorMessage = decodedError['message']; }
+  //       } catch (_) { errorMessage = response.body; }
+  //       throw Exception(errorMessage);
+  //     }
+  //   } catch (e, stackTrace) {
+  //     print('--- ERROR FETCHING CATEGORY METADATA ---');
+  //     print('Exception Type: ${e.runtimeType}');
+  //     print('Exception Object: $e');
+  //     print('Stack Trace: \n$stackTrace');
+  //     print('--- END ERROR ---');
+  //     throw Exception('Could not load category details. Please check the debug console.');
+  //   } finally {
+  //     ioClient.close();
+  //   }
+  // }
   // Future<Map<String, dynamic>> fetchCategoryMetadataByName(String categoryName) async {
   //   final urlKey = categoryName
   //       .toLowerCase()

@@ -229,12 +229,21 @@ class _OrderHistoryDetailsState extends State<OrderHistoryDetails> {
   final OrderHistoryRepository _repository = OrderHistoryRepository();
   late Future<OrderDetails11> _orderDetailsFuture;
 
+  final List<String> orderStatuses = [
+    'In Production',
+    'Quality Control',
+    'Shipped',
+    'Custom Clearance',
+    'Delivered',
+  ];
+
   @override
   void initState() {
     super.initState();
     // Access orderId using widget.orderId
     _orderDetailsFuture = _repository.fetchOrderDetails(widget.orderId);
   }
+
 
 
   String getCurrencySymbol(String code) {
@@ -330,21 +339,103 @@ class _OrderHistoryDetailsState extends State<OrderHistoryDetails> {
     );
   }
 
+  // Widget _buildOrderItem(OrderItem11 item, CurrencyLoaded currencyState) {
+  //   // Conversion rate for selected currency
+  //   final conversionRate = currencyState.selectedRate.rate;
+  //   final symbol = currencyState.selectedSymbol;
+  //
+  //   print('Current Symbol: $symbol');
+  //   print('Conversion Rate: $conversionRate');
+  //   print('Original Price: ${item.price}');
+  //
+  //   // Convert price and subtotal
+  //   final convertedPrice = item.price * conversionRate;
+  //   final convertedSubtotal = item.price * item.qty * conversionRate;
+  //
+  //   print('Converted Price: $convertedPrice');
+  //   print('Converted Subtotal: $convertedSubtotal');
+  //
+  //   return Card(
+  //     elevation: 1,
+  //     margin: const EdgeInsets.only(bottom: 16),
+  //     child: Padding(
+  //       padding: const EdgeInsets.all(12.0),
+  //       child: Column(
+  //         children: [
+  //           Row(
+  //             crossAxisAlignment: CrossAxisAlignment.start,
+  //             children: [
+  //               // Container(
+  //               //   width: 80,
+  //               //   height: 100,
+  //               //   color: Colors.grey[200],
+  //               //   child: item.imageUrl.isNotEmpty
+  //               //       ? Image.network(item.imageUrl, fit: BoxFit.cover,
+  //               //       errorBuilder: (context, error, stack) =>
+  //               //       const Icon(Icons.image, size: 40, color: Colors.grey))
+  //               //       : const Icon(Icons.image, size: 40, color: Colors.grey),
+  //               // ),
+  //               SizedBox(
+  //                 width: 80, // You can adjust the width, height will follow 2:3
+  //                 child: AspectRatio(
+  //                   aspectRatio: 2 / 3, // Width: 2, Height: 3
+  //                   child: Container(
+  //                     decoration: BoxDecoration(
+  //                       color: Colors.grey[200],
+  //                       borderRadius: BorderRadius.circular(4), // Optional: slight rounding
+  //                     ),
+  //                     clipBehavior: Clip.antiAlias, // Ensures image follows border radius
+  //                     child: item.imageUrl.isNotEmpty
+  //                         ? Image.network(
+  //                       item.imageUrl,
+  //                       fit: BoxFit.cover, // Ensures image fills the 2:3 area
+  //                       errorBuilder: (context, error, stack) =>
+  //                       const Icon(Icons.image, size: 40, color: Colors.grey),
+  //                     )
+  //                         : const Icon(Icons.image, size: 40, color: Colors.grey),
+  //                   ),
+  //                 ),
+  //               ),
+  //               const SizedBox(width: 12),
+  //               Expanded(
+  //                 child: Column(
+  //                   crossAxisAlignment: CrossAxisAlignment.start,
+  //                   children: [
+  //                     Text(item.name,
+  //                         style: const TextStyle(
+  //                             fontWeight: FontWeight.bold, fontSize: 16)),
+  //                     const SizedBox(height: 4),
+  //                     Text('SKU: ${item.sku}',
+  //                         style: const TextStyle(color: Colors.grey)),
+  //                     const SizedBox(height: 8),
+  //                     // Display converted price with the selected symbol
+  //                     Text('Price: $symbol${convertedPrice.toStringAsFixed(2)}'),
+  //                     Text('Qty: ${item.qty}'),
+  //                     // Display converted subtotal with the selected symbol
+  //                     Text('Subtotal: $symbol${convertedSubtotal.toStringAsFixed(2)}'),
+  //                     Text(
+  //                       'Current Status: ${item.statusText}',
+  //                       style: const TextStyle(fontWeight: FontWeight.w600),
+  //                     ),
+  //                     const SizedBox(height: 8),
+  //                     _buildStatusTracker(item.statusCode),
+  //                   ],
+  //                 ),
+  //               ),
+  //             ],
+  //           ),
+  //           const Divider(height: 24),
+  //         ],
+  //       ),
+  //     ),
+  //   );
+  // }
   Widget _buildOrderItem(OrderItem11 item, CurrencyLoaded currencyState) {
-    // Conversion rate for selected currency
     final conversionRate = currencyState.selectedRate.rate;
     final symbol = currencyState.selectedSymbol;
 
-    print('Current Symbol: $symbol');
-    print('Conversion Rate: $conversionRate');
-    print('Original Price: ${item.price}');
-
-    // Convert price and subtotal
     final convertedPrice = item.price * conversionRate;
     final convertedSubtotal = item.price * item.qty * conversionRate;
-
-    print('Converted Price: $convertedPrice');
-    print('Converted Subtotal: $convertedSubtotal');
 
     return Card(
       elevation: 1,
@@ -352,21 +443,36 @@ class _OrderHistoryDetailsState extends State<OrderHistoryDetails> {
       child: Padding(
         padding: const EdgeInsets.all(12.0),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start, // Align everything to the left
           children: [
+            // TOP SECTION: Image and Details
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
+                // Product Image
+                SizedBox(
                   width: 80,
-                  height: 100,
-                  color: Colors.grey[200],
-                  child: item.imageUrl.isNotEmpty
-                      ? Image.network(item.imageUrl, fit: BoxFit.cover,
-                      errorBuilder: (context, error, stack) =>
-                      const Icon(Icons.image, size: 40, color: Colors.grey))
-                      : const Icon(Icons.image, size: 40, color: Colors.grey),
+                  child: AspectRatio(
+                    aspectRatio: 2 / 3,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.grey[200],
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: item.imageUrl.isNotEmpty
+                          ? Image.network(
+                        item.imageUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stack) =>
+                        const Icon(Icons.image, size: 40, color: Colors.grey),
+                      )
+                          : const Icon(Icons.image, size: 40, color: Colors.grey),
+                    ),
+                  ),
                 ),
                 const SizedBox(width: 12),
+                // Product Details
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -378,24 +484,139 @@ class _OrderHistoryDetailsState extends State<OrderHistoryDetails> {
                       Text('SKU: ${item.sku}',
                           style: const TextStyle(color: Colors.grey)),
                       const SizedBox(height: 8),
-                      // Display converted price with the selected symbol
                       Text('Price: $symbol${convertedPrice.toStringAsFixed(2)}'),
                       Text('Qty: ${item.qty}'),
-                      // Display converted subtotal with the selected symbol
-                      Text('Subtotal: $symbol${convertedSubtotal.toStringAsFixed(2)}'),
-                      Text('Status: ${item.status}'),
+                      Text('Subtotal: $symbol${convertedSubtotal.toStringAsFixed(2)}',
+                          style: const TextStyle(fontWeight: FontWeight.bold)),
                     ],
                   ),
                 ),
               ],
             ),
+
             const Divider(height: 24),
+
+            // BOTTOM SECTION: Status Tracker (Now below the image, aligned left)
+            Text(
+              'Order Status: ${item.statusText}',
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+            ),
+            const SizedBox(height: 12),
+            _buildStatusTracker(item.statusCode),
           ],
         ),
       ),
     );
   }
+  Widget _buildStatusTracker(int currentStatusCode) {
+    final activeIndex = currentStatusCode > 0 ? currentStatusCode - 1 : 0;
 
+    return Row(
+      children: [
+        // Left Arrow
+        Icon(Icons.chevron_left, color: Colors.black, size: 30),
+
+        // Scrollable Tracker
+        Expanded(
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: List.generate(orderStatuses.length, (index) {
+                final isCompleted = index < activeIndex;
+                final isActive = index == activeIndex;
+                final color = isCompleted || isActive ? Colors.green : Colors.grey;
+
+                return Row(
+                  children: [
+                    Column(
+                      children: [
+                        Icon(
+                          isCompleted ? Icons.check_circle : Icons.radio_button_checked,
+                          color: color,
+                          size: 22,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          orderStatuses[index],
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: color,
+                            fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (index < orderStatuses.length - 1)
+                      Container(
+                        width: 25,
+                        height: 2,
+                        color: isCompleted ? Colors.green : Colors.grey[300],
+                        margin: const EdgeInsets.symmetric(horizontal: 4),
+                      ),
+                  ],
+                );
+              }),
+            ),
+          ),
+        ),
+
+        // Right Arrow
+        Icon(Icons.chevron_right, color: Colors.black, size: 30),
+      ],
+    );
+  }
+  // Widget _buildStatusTracker(int currentStatusCode) {
+  //   final activeIndex = currentStatusCode > 0
+  //       ? currentStatusCode - 1
+  //       : 0;
+  //
+  //   return SingleChildScrollView(
+  //     scrollDirection: Axis.horizontal,
+  //     child: Row(
+  //       children: List.generate(orderStatuses.length, (index) {
+  //         final isCompleted = index < activeIndex;
+  //         final isActive = index == activeIndex;
+  //
+  //         final color = isCompleted || isActive
+  //             ? Colors.green
+  //             : Colors.grey;
+  //
+  //         return Row(
+  //           children: [
+  //             Column(
+  //               children: [
+  //                 Icon(
+  //                   isCompleted
+  //                       ? Icons.check_circle
+  //                       : Icons.radio_button_checked,
+  //                   color: color,
+  //                   size: 26,
+  //                 ),
+  //                 const SizedBox(height: 4),
+  //                 Text(
+  //                   orderStatuses[index],
+  //                   style: TextStyle(
+  //                     fontSize: 12,
+  //                     color: color,
+  //                     fontWeight:
+  //                     isActive ? FontWeight.bold : FontWeight.normal,
+  //                   ),
+  //                 ),
+  //               ],
+  //             ),
+  //             if (index < orderStatuses.length - 1)
+  //               Container(
+  //                 width: 30,
+  //                 height: 2,
+  //                 color: isCompleted ? Colors.green : Colors.grey[300],
+  //                 margin: const EdgeInsets.symmetric(horizontal: 6),
+  //               ),
+  //           ],
+  //         );
+  //       }),
+  //     ),
+  //   );
+  // }
 
 
   // Widget _buildStatusTracker({required String currentStatus}) {

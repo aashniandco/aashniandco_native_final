@@ -146,7 +146,10 @@ import 'package:http/io_client.dart';
 
 const int _productsPerPage = 10;
 
+//8/12/2025
+
 class CategoryProductsBloc extends Bloc<CategoryProductsEvent, CategoryProductsState> {
+
   CategoryProductsBloc() : super(const CategoryProductsState()) {
     on<FetchProducts>(_onFetchProducts);
   }
@@ -229,7 +232,7 @@ class CategoryProductsBloc extends Bloc<CategoryProductsEvent, CategoryProductsS
     return '${queryParts.join(' AND ')} AND actual_price_1:{0 TO *}';
   }
 
-
+//9/12/2025
   Future<void> _onFetchProducts(
       FetchProducts event, Emitter<CategoryProductsState> emit) async {
     // For pagination, if we've already reached the max, do nothing.
@@ -250,6 +253,8 @@ class CategoryProductsBloc extends Bloc<CategoryProductsEvent, CategoryProductsS
         // For pagination, just indicate loading status.
         emit(state.copyWith(status: CategoryProductsStatus.loading));
       }
+
+
       final String categoryKey = event.categoryName.toLowerCase();
       final CategoryData? categoryData = CategoryMapping.getDataByName(categoryKey);
       // --- 1. Get Category ID ---
@@ -310,7 +315,7 @@ class CategoryProductsBloc extends Bloc<CategoryProductsEvent, CategoryProductsS
       }
       // --- END OF THE FIX ---
 
-      final String fieldsToReturn = "designer_name,actual_price,prod_name,prod_en_id,prod_sku,prod_small_img,prod_thumb_img,short_desc,categories-store-1_name,size_name,prod_desc,child_delivery_time,actual_price_1";
+      final String fieldsToReturn = "designer_name,actual_price,prod_name,prod_en_id,prod_sku,prod_small_img,prod_thumb_img,short_desc,categories-store-1_name,size_name,prod_desc,child_delivery_time,actual_price_1,enquire_1";
       final String rowCount = "$_productsPerPage";
       final String start = "$startPosition";
 

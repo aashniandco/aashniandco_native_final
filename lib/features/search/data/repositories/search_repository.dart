@@ -90,7 +90,7 @@ class SearchRepository {
     final uri = Uri.parse('${ApiConstants.baseUrl}/V1/solr/search');
     final requestBody = {"queryParams": {"query": solrQuery}};
 
-    print("   Request Body: ${json.encode(requestBody)}");
+    print("   Request Body>>>>: ${json.encode(requestBody)}");
 
     HttpClient httpClient = HttpClient()..badCertificateCallback = (cert, host, port) => true;
     IOClient ioClient = IOClient(httpClient);

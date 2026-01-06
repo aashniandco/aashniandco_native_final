@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.0+1
+version: 1.3.3+30
 
 environment:
   sdk: ^3.9.0
@@ -40,10 +40,8 @@ dependencies:
   equatable: ^2.0.5
   collection: ^1.17.2
   html: ^0.15.6
+  font_awesome_flutter: ^10.7.0
 
-dev_dependencies:
-  flutter_test:
-    sdk: flutter
   flutter_riverpod: ^2.0.3
   carousel_slider: ^4.0.0
   shimmer: ^3.0.0
@@ -52,21 +50,42 @@ dev_dependencies:
   share_plus: ^10.1.2
   image_picker:
   flutter_inappwebview: ^6.0.0
+  flutter_svg: ^2.0.10
 
-  equatable: ^2.0.5
+
   smooth_page_indicator: ^1.0.0
   url_launcher: ^6.1.14
   google_fonts: ^6.1.0
   connectivity_plus: ^6.1.0
-  shared_preferences: ^2.5.3
+  shared_preferences: ^2.3.2
   dio: ^5.2.1
   dio_cookie_manager: ^2.0.0
   cookie_jar: ^3.0.1
-  collection: ^1.17.0
+#  collection: ^1.17.0
   intl: ^0.18.1
   payu_checkoutpro_flutter: ^1.3.4
   flutter_launcher_icons: ^0.13.1
   bloc_concurrency: ^0.2.2
+  webview_flutter: ^4.7.0
+  internet_connection_checker_plus: ^2.0.0
+#  firebase_core: ^4.3.0
+#  firebase_analytics: ^12.1.0
+#  firebase_messaging: ^16.1.0
+#  flutter_local_notifications: ^17.0.0
+#  firebase_remote_config: ^4.3.8
+  firebase_core: ^3.6.0
+  firebase_analytics: ^11.6.0
+  firebase_messaging: ^15.1.3
+  firebase_remote_config: ^5.1.0
+  flutter_local_notifications: ^17.0.0
+  package_info_plus: ^8.0.0
+
+
+
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
 
 flutter_launcher_icons:
   android: true
@@ -176,7 +195,7 @@ flutter:
     - assets/Festive-Favourites.jpg
     - assets/Modern-Jewels.jpg
     - assets/Everyday-Classics.jpg
-    - assets/Hand-Jewelry.jpg
+
     - assets/Menswear-Edit-1.jpg
     - assets/Menswear-Edit-2.jpg
     - assets/Menswear-Edit-3.jpg
@@ -186,6 +205,8 @@ flutter:
     - assets/Bridal Trends in 2025.jpg
     - assets/Elevating Traditional Fashion with the Latest Anarkali Trends.jpg
     - assets/The Comeback of the Mermaid Lehenga.jpg
+    - assets/menu_img_size.jpg
+    - assets/menu_img_size1.jpg
 
 
     - assets/Bridesmaid-Glam-New.jpg
@@ -202,6 +223,25 @@ flutter:
     - assets/Pop-Up_B.jpg
     - assets/wedding-curation.jpg
     - assets/splash_new.png
+    - assets/whatsapp.svg
+
+    - assets/Accessories.jpg
+    - assets/Bestsellers.jpg
+    - assets/Designers.jpg
+    - assets/Jewlery.jpg
+    - assets/Journal.jpg
+    - assets/Kids.jpg
+    - assets/MEN.jpg
+    - assets/NEWIN.jpg
+    - assets/Offers.jpg
+    - assets/Ready To Ship.jpg
+    - assets/Wedding.jpg
+    - assets/WOMEN.jpg
+
+
+
+
+
 
 
   # An image asset can refer to one or more resolution-specific "variants", see

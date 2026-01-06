@@ -115,96 +115,112 @@
 // }
 
 
-// main.dart
-
 import 'dart:io';
-
-import 'package:aashniandco/bloc/text_change/state/text_bloc.dart';
-import 'package:aashniandco/constants/api_constants.dart';
-import 'package:aashniandco/constants/environment.dart';
-import 'package:aashniandco/features/designer/bloc/designers_bloc.dart';
-import 'package:aashniandco/features/newin/bloc/new_in_bloc.dart';
-import 'package:aashniandco/features/welcome/splash_screen.dart';
+import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'app/app.dart';
 
-// Import your repositories
-import 'package:aashniandco/features/shoppingbag/repository/cart_repository.dart';
-import 'package:aashniandco/features/auth/data/auth_repository.dart';
-import 'package:aashniandco/features/signup/repository/signup_repository.dart';
-import 'package:aashniandco/features/shoppingbag/repository/shipping_repository.dart';
-
-// ✅ 1. Import Product BLoC and Repository
-// Please adjust the paths to match your project structure.
-
-
-
-// Import your BLoCs and Events
-import 'features/auth/bloc/currency_bloc.dart';
-import 'features/auth/bloc/currency_event.dart';
-import 'features/auth/bloc/home_screen_banner_bloc.dart';
-import 'features/auth/services/currency_service.dart';
-import 'features/auth/services/ip_service.dart';
-import 'features/categories/repository/api_service.dart';
-import 'features/new_in_tabbar/api/product_repository.dart';
-import 'features/new_in_tabbar/bloc/product_bloc.dart';
-import 'features/search/bloc/search_bloc.dart';
-import 'features/search/data/repositories/search_repository.dart';
-import 'features/shoppingbag/ shipping_bloc/shipping_bloc.dart';
-import 'features/shoppingbag/cart_bloc/cart_bloc.dart';
-import 'features/shoppingbag/cart_bloc/cart_event.dart';
-import 'features/signup/bloc/signup_bloc.dart';
-
-
-// main.dart
-
-import 'package:aashniandco/bloc/text_change/state/text_bloc.dart';
+// 🔹 Import all repositories
 import 'package:aashniandco/constants/api_constants.dart';
 import 'package:aashniandco/constants/environment.dart';
-import 'package:aashniandco/features/designer/bloc/designers_bloc.dart';
-import 'package:aashniandco/features/newin/bloc/new_in_bloc.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_stripe/flutter_stripe.dart';
-import 'app/app.dart';
-
-// Import your repositories
 import 'package:aashniandco/features/shoppingbag/repository/cart_repository.dart';
 import 'package:aashniandco/features/auth/data/auth_repository.dart';
 import 'package:aashniandco/features/signup/repository/signup_repository.dart';
 import 'package:aashniandco/features/shoppingbag/repository/shipping_repository.dart';
 import 'package:aashniandco/features/new_in_tabbar/api/product_repository.dart';
-
-// ✅ 1. Import your SearchRepository
 import 'package:aashniandco/features/search/data/repositories/search_repository.dart';
+import 'package:aashniandco/features/auth/services/ip_service.dart';
+import 'package:aashniandco/features/auth/services/currency_service.dart';
+import 'package:aashniandco/features/categories/repository/api_service.dart';
 
-
-// Import your BLoCs and Events
+// 🔹 Import blocs
+import 'bloc/text_change/state/text_bloc.dart';
+import 'features/auth/bloc/currency_bloc.dart';
+import 'features/auth/bloc/currency_event.dart';
 import 'features/auth/bloc/home_screen_banner_bloc.dart';
-import 'features/new_in_tabbar/bloc/product_bloc.dart';
-import 'features/search/bloc/search_bloc.dart';
+import 'features/designer/bloc/designers_bloc.dart';
+import 'features/newin/bloc/new_in_bloc.dart';
+import 'features/push_notification/notification_service.dart';
 import 'features/shoppingbag/ shipping_bloc/shipping_bloc.dart';
 import 'features/shoppingbag/cart_bloc/cart_bloc.dart';
 import 'features/shoppingbag/cart_bloc/cart_event.dart';
+
 import 'features/signup/bloc/signup_bloc.dart';
-import 'features/welcome/welcome_scren.dart';
+
+import 'features/new_in_tabbar/bloc/product_bloc.dart';
+import 'features/search/bloc/search_bloc.dart';
+import 'features/welcome/splash_screen.dart';
 import 'http_overrides.dart';
 
+import 'bloc/internet/internet_cubit.dart';
+import 'navigation_service.dart';
+import 'widgets/no_internet_widget.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_analytics/firebase_analytics.dart';
+import 'firebase_options.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 
-void main() async {
+
+@pragma('vm:entry-point')
+Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
+  debugPrint("🔔 Background message received: ${message.messageId}");
+}
+
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Your existing initialization
-  HttpOverrides.global = MyHttpOverrides();
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    debugPrint("✅ Firebase Initialized successfully");
+  } catch (e) {
+    debugPrint("⚠️ Firebase Initialization failed: $e");
+  }
+
+  // 🔥 Register background handler
+  FirebaseMessaging.onBackgroundMessage(
+    firebaseMessagingBackgroundHandler,
+  );
+
+  // 🔔 Initialize notifications
+  await NotificationService.init();
+
+  await Future.delayed(const Duration(seconds: 1));
+  // 🔑 Get FCM Token (store in DB later)
+  final fcmToken = await NotificationService.getFcmToken();
+  debugPrint("🔥 FCM TOKEN: $fcmToken");
+
+  FirebaseAnalytics analytics = FirebaseAnalytics.instance;
+
+  try {
+    await SharedPreferences.getInstance();
+  } catch (e) {
+    debugPrint("⚠️ SharedPreferences init failed: $e");
+  }
+
+    HttpOverrides.global = MyHttpOverrides();
   ApiConstants.setEnvironment(Environment.prod);
+
+  // 🔹 Stripe setup
   Stripe.publishableKey = 'pk_live_6AVyw9mDOfUeaSLLbFOheLcg00GGRaLY3K';
+  Stripe.merchantIdentifier = 'merchant.com.aashniandco';
+
+  // Stripe.publishableKey = 'pk_test_CjTXZoMy2Ax0gA2xZbf3F99u00fGR7Cnph';
+  // Stripe.merchantIdentifier = 'merchant.com.aashniandco.stage';
   await Stripe.instance.applySettings();
 
-  // Create repository instances
+  // 🔹 Create repositories
   final authRepository = AuthRepository();
   final cartRepository = CartRepository();
   final signupRepository = SignupRepository(baseUrl: 'https://aashniandco.com');
@@ -214,19 +230,20 @@ void main() async {
   final apiService = ApiService();
   final ipService = IpService();
 
-  // Fetch IP (optional)
+  // 🔹 Optional: Get public IP (won’t crash release build)
   try {
-    final ipAddress = await ipService.getPublicIpAddress();
-    print('Your IP: $ipAddress');
-  } catch (e) {
-    print('Could not fetch IP: $e');
+    final ip = await ipService.getPublicIpAddress();
+    debugPrint('Your IP: $ip');
+  } catch (_) {
+    debugPrint('Could not fetch IP');
   }
 
+  // 🔹 Run the app
   runApp(
     ProviderScope(
       child: MultiRepositoryProvider(
         providers: [
-          RepositoryProvider<ApiService>.value(value: apiService),
+          RepositoryProvider.value(value: apiService),
         ],
         child: MultiBlocProvider(
           providers: [
@@ -236,22 +253,24 @@ void main() async {
             BlocProvider(create: (_) => HomeScreenBannerBloc()),
             BlocProvider(create: (_) => ShippingBloc()),
             BlocProvider(create: (_) => SignupBloc(signupRepository)),
-            BlocProvider(create: (_) => CartBloc(
-              cartRepository: cartRepository,
-              authRepository: authRepository,
-            )..add(FetchCartItems())),
+            BlocProvider(
+              create: (_) => CartBloc(
+                cartRepository: cartRepository,
+                authRepository: authRepository,
+              )..add(FetchCartItems()),
+            ),
             BlocProvider(create: (_) => ProductBloc(productRepository: productRepository)),
             BlocProvider(create: (_) => SearchBloc(searchRepository: searchRepository)),
-            BlocProvider<CurrencyBloc>(create: (_) => CurrencyBloc(CurrencyService())..add(FetchCurrencyData())),
+            BlocProvider(create: (_) => CurrencyBloc(CurrencyService())..add(FetchCurrencyData())),
           ],
-          // ✅ Set WelcomeScreen as the initial screen
           child: MaterialApp(
+            navigatorKey: NavigationService.navigatorKey,
             debugShowCheckedModeBanner: false,
             title: 'Aashni & Co',
             theme: ThemeData(primarySwatch: Colors.purple),
-            home:  SplashScreen(),
+            home: SplashScreen(),
             routes: {
-              '/home': (context) => const MyApp(), // Your main app screen
+              '/home': (context) => const MyApp(),
             },
           ),
         ),
@@ -259,6 +278,249 @@ void main() async {
     ),
   );
 }
+
+
+//3/1/2026
+// Future<void> main() async {
+//   WidgetsFlutterBinding.ensureInitialized(); // ✅ ensures all plugins are ready
+//
+//   try {
+//     await Firebase.initializeApp(
+//       options: DefaultFirebaseOptions.currentPlatform,
+//     );
+//     debugPrint("✅ Firebase Initialized successfully");
+//   } catch (e) {
+//     debugPrint("⚠️ Firebase Initialization failed: $e");
+//   }
+//
+//   // 🔥 3. Create Analytics Instance
+//   FirebaseAnalytics analytics = FirebaseAnalytics.instance;
+//
+//   // 🔹 Safe initialization of SharedPreferences
+//   try {
+//     await SharedPreferences.getInstance();
+//   } catch (e) {
+//     debugPrint("⚠️ SharedPreferences initialization failed: $e");
+//   }
+//
+//
+//   // // Now safely initialize SharedPreferences
+//   // final prefs = await SharedPreferences.getInstance();
+//
+//   HttpOverrides.global = MyHttpOverrides();
+//   ApiConstants.setEnvironment(Environment.prod);
+//
+//   // 🔹 Stripe setup
+//   Stripe.publishableKey = 'pk_live_6AVyw9mDOfUeaSLLbFOheLcg00GGRaLY3K';
+//   Stripe.merchantIdentifier = 'merchant.com.aashniandco';
+//
+//   // Stripe.publishableKey = 'pk_test_CjTXZoMy2Ax0gA2xZbf3F99u00fGR7Cnph';
+//   // Stripe.merchantIdentifier = 'merchant.com.aashniandco.stage';
+//   await Stripe.instance.applySettings();
+//
+//   // 🔹 Create repositories
+//   final authRepository = AuthRepository();
+//   final cartRepository = CartRepository();
+//   final signupRepository = SignupRepository(baseUrl: 'https://aashniandco.com');
+//   final shippingRepository = ShippingRepository();
+//   final productRepository = ProductRepository();
+//   final searchRepository = SearchRepository();
+//   final apiService = ApiService();
+//   final ipService = IpService();
+//
+//   // 🔹 Optional: Get public IP (won’t crash release build)
+//   try {
+//     final ip = await ipService.getPublicIpAddress();
+//     debugPrint('Your IP: $ip');
+//   } catch (_) {
+//     debugPrint('Could not fetch IP');
+//   }
+//
+//   // 🔹 Run the app
+//   runApp(
+//     ProviderScope(
+//       child: MultiRepositoryProvider(
+//         providers: [
+//           RepositoryProvider.value(value: apiService),
+//         ],
+//         child: MultiBlocProvider(
+//           providers: [
+//             BlocProvider(create: (_) => TextBloc()),
+//             BlocProvider(create: (_) => DesignersBloc()..add(FetchDesigners())),
+//             BlocProvider(create: (_) => NewInBloc()),
+//             BlocProvider(create: (_) => HomeScreenBannerBloc()),
+//             BlocProvider(create: (_) => ShippingBloc()),
+//             BlocProvider(create: (_) => SignupBloc(signupRepository)),
+//             BlocProvider(
+//               create: (_) => CartBloc(
+//                 cartRepository: cartRepository,
+//                 authRepository: authRepository,
+//               )..add(FetchCartItems()),
+//             ),
+//             BlocProvider(create: (_) => ProductBloc(productRepository: productRepository)),
+//             BlocProvider(create: (_) => SearchBloc(searchRepository: searchRepository)),
+//             BlocProvider(create: (_) => CurrencyBloc(CurrencyService())..add(FetchCurrencyData())),
+//           ],
+//           child: MaterialApp(
+//             debugShowCheckedModeBanner: false,
+//             title: 'Aashni & Co',
+//             theme: ThemeData(primarySwatch: Colors.purple),
+//             home: SplashScreen(),
+//             routes: {
+//               '/home': (context) => const MyApp(),
+//             },
+//           ),
+//         ),
+//       ),
+//     ),
+//   );
+// }
+///3/1/206 end
+// main.dart
+//11/11/2025
+// import 'dart:io';
+// import 'package:shared_preferences/shared_preferences.dart';
+// import 'package:aashniandco/bloc/text_change/state/text_bloc.dart';
+// import 'package:aashniandco/constants/api_constants.dart';
+// import 'package:aashniandco/constants/environment.dart';
+// import 'package:aashniandco/features/designer/bloc/designers_bloc.dart';
+// import 'package:aashniandco/features/newin/bloc/new_in_bloc.dart';
+// import 'package:aashniandco/features/welcome/splash_screen.dart';
+// import 'package:flutter/material.dart';
+// import 'package:flutter_riverpod/flutter_riverpod.dart';
+// import 'package:flutter_bloc/flutter_bloc.dart';
+// import 'package:flutter_stripe/flutter_stripe.dart';
+// import 'app/app.dart';
+//
+// // Import your repositories
+// import 'package:aashniandco/features/shoppingbag/repository/cart_repository.dart';
+// import 'package:aashniandco/features/auth/data/auth_repository.dart';
+// import 'package:aashniandco/features/signup/repository/signup_repository.dart';
+// import 'package:aashniandco/features/shoppingbag/repository/shipping_repository.dart';
+//
+// // ✅ 1. Import Product BLoC and Repository
+// // Please adjust the paths to match your project structure.
+//
+//
+//
+// // Import your BLoCs and Events
+// import 'features/auth/bloc/currency_bloc.dart';
+// import 'features/auth/bloc/currency_event.dart';
+// import 'features/auth/bloc/home_screen_banner_bloc.dart';
+// import 'features/auth/services/currency_service.dart';
+// import 'features/auth/services/ip_service.dart';
+// import 'features/categories/repository/api_service.dart';
+// import 'features/new_in_tabbar/api/product_repository.dart';
+// import 'features/new_in_tabbar/bloc/product_bloc.dart';
+// import 'features/search/bloc/search_bloc.dart';
+// import 'features/search/data/repositories/search_repository.dart';
+// import 'features/shoppingbag/ shipping_bloc/shipping_bloc.dart';
+// import 'features/shoppingbag/cart_bloc/cart_bloc.dart';
+// import 'features/shoppingbag/cart_bloc/cart_event.dart';
+// import 'features/signup/bloc/signup_bloc.dart';
+//
+//
+// // main.dart
+//
+// import 'package:aashniandco/bloc/text_change/state/text_bloc.dart';
+// import 'package:aashniandco/constants/api_constants.dart';
+// import 'package:aashniandco/constants/environment.dart';
+// import 'package:aashniandco/features/designer/bloc/designers_bloc.dart';
+// import 'package:aashniandco/features/newin/bloc/new_in_bloc.dart';
+// import 'package:flutter/material.dart';
+// import 'package:flutter_riverpod/flutter_riverpod.dart';
+// import 'package:flutter_bloc/flutter_bloc.dart';
+// import 'package:flutter_stripe/flutter_stripe.dart';
+// import 'app/app.dart';
+//
+// // Import your repositories
+// import 'package:aashniandco/features/shoppingbag/repository/cart_repository.dart';
+// import 'package:aashniandco/features/auth/data/auth_repository.dart';
+// import 'package:aashniandco/features/signup/repository/signup_repository.dart';
+// import 'package:aashniandco/features/shoppingbag/repository/shipping_repository.dart';
+// import 'package:aashniandco/features/new_in_tabbar/api/product_repository.dart';
+//
+// // ✅ 1. Import your SearchRepository
+// import 'package:aashniandco/features/search/data/repositories/search_repository.dart';
+//
+//
+// // Import your BLoCs and Events
+// import 'features/auth/bloc/home_screen_banner_bloc.dart';
+// import 'features/new_in_tabbar/bloc/product_bloc.dart';
+// import 'features/search/bloc/search_bloc.dart';
+// import 'features/shoppingbag/ shipping_bloc/shipping_bloc.dart';
+// import 'features/shoppingbag/cart_bloc/cart_bloc.dart';
+// import 'features/shoppingbag/cart_bloc/cart_event.dart';
+// import 'features/signup/bloc/signup_bloc.dart';
+// import 'features/welcome/welcome_scren.dart';
+// import 'http_overrides.dart';
+//
+//
+// void main() async {
+//   WidgetsFlutterBinding.ensureInitialized();
+//   await SharedPreferences.getInstance();
+//
+//   // Your existing initialization
+//   HttpOverrides.global = MyHttpOverrides();
+//   ApiConstants.setEnvironment(Environment.prod);
+//   Stripe.publishableKey = 'pk_live_6AVyw9mDOfUeaSLLbFOheLcg00GGRaLY3K';
+//   await Stripe.instance.applySettings();
+//
+//   // Create repository instances
+//   final authRepository = AuthRepository();
+//   final cartRepository = CartRepository();
+//   final signupRepository = SignupRepository(baseUrl: 'https://aashniandco.com');
+//   final shippingRepository = ShippingRepository();
+//   final productRepository = ProductRepository();
+//   final searchRepository = SearchRepository();
+//   final apiService = ApiService();
+//   final ipService = IpService();
+//
+//   // Fetch IP (optional)
+//   try {
+//     final ipAddress = await ipService.getPublicIpAddress();
+//     print('Your IP: $ipAddress');
+//   } catch (e) {
+//     print('Could not fetch IP: $e');
+//   }
+//
+//   runApp(
+//     ProviderScope(
+//       child: MultiRepositoryProvider(
+//         providers: [
+//           RepositoryProvider<ApiService>.value(value: apiService),
+//         ],
+//         child: MultiBlocProvider(
+//           providers: [
+//             BlocProvider(create: (_) => TextBloc()),
+//             BlocProvider(create: (_) => DesignersBloc()..add(FetchDesigners())),
+//             BlocProvider(create: (_) => NewInBloc()),
+//             BlocProvider(create: (_) => HomeScreenBannerBloc()),
+//             BlocProvider(create: (_) => ShippingBloc()),
+//             BlocProvider(create: (_) => SignupBloc(signupRepository)),
+//             BlocProvider(create: (_) => CartBloc(
+//               cartRepository: cartRepository,
+//               authRepository: authRepository,
+//             )..add(FetchCartItems())),
+//             BlocProvider(create: (_) => ProductBloc(productRepository: productRepository)),
+//             BlocProvider(create: (_) => SearchBloc(searchRepository: searchRepository)),
+//             BlocProvider<CurrencyBloc>(create: (_) => CurrencyBloc(CurrencyService())..add(FetchCurrencyData())),
+//           ],
+//           // ✅ Set WelcomeScreen as the initial screen
+//           child: MaterialApp(
+//             debugShowCheckedModeBanner: false,
+//             title: 'Aashni & Co',
+//             theme: ThemeData(primarySwatch: Colors.purple),
+//             home:  SplashScreen(),
+//             routes: {
+//               '/home': (context) => const MyApp(), // Your main app screen
+//             },
+//           ),
+//         ),
+//       ),
+//     ),
+//   );
+// }
 // void main() async {
 //   WidgetsFlutterBinding.ensureInitialized();
 //   HttpOverrides.global = MyHttpOverrides();

@@ -40,7 +40,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Image.asset('assets/logo.jpeg', height: 30),
+            // Image.asset('assets/logo.jpeg', height: 30),
             if (_firstName != null && _lastName != null)
               Padding(
                 padding: const EdgeInsets.only(top: 10, right: 100),

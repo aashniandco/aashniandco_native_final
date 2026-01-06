@@ -22,8 +22,8 @@ class _LoginScreen1State extends State<LoginScreen1> {
   bool isLoggedIn = false;
 
   final LoginRepository _loginRepository =
+  // LoginRepository(baseUrl: 'https://aashniandco.com');
   LoginRepository(baseUrl: 'https://aashniandco.com');
-
   @override
   void dispose() {
     _email.dispose();
@@ -264,6 +264,12 @@ class _LoginScreen1State extends State<LoginScreen1> {
         ),
       ),
     );
+  }
+
+  bool isNetworkError(String message) {
+    return message.contains("SocketException") ||
+        message.contains("ClientException") ||
+        message.contains("Failed host lookup");
   }
 
 }

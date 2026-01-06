@@ -21,3 +21,9 @@ class AddAddress extends AddressEvent {
 
 
 }
+
+// --- ADD THIS CLASS ---
+// class DeleteAddress extends AddressEvent {
+//   final int addressId;
+//   DeleteAddress(this.addressId);
+// }

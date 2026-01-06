@@ -913,6 +913,7 @@ class ShippingRepository {
 
   Future<Map<String, dynamic>> initiatePayUPayment({
     required String currencyCode, // ✅ Added currencyCode parameter
+    required Map<String, dynamic> billingAddress,
   }) async {
     if (kDebugMode) print("--- ShippingRepository: Initiating PayU Payment ---");
 
@@ -928,7 +929,8 @@ class ShippingRepository {
     Uri url;
     Map<String, String> headers = {'Content-Type': 'application/json'};
     Map<String, dynamic> body = {
-      'currencyCode': currencyCode, // ✅ Always include currencyCode
+      'currencyCode': currencyCode,
+      "billingAddress": billingAddress, // ✅ Always include currencyCode
     };
 
     if (customerToken != null && customerToken.isNotEmpty) {

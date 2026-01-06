@@ -10,7 +10,7 @@ import 'package:http/io_client.dart';
 import 'package:aashniandco/features/categories/model/megamenu_model.dart'; // Adjust import if needed
 
 class MegamenuRepository {
-  final String baseUrl = 'https://stage.aashniandco.com/rest/V1/solr/megamenu';
+  final String baseUrl = 'https://aashniandco.com/rest/V1/solr/megamenu';
 
   Future<MegamenuModel> fetchMegamenu() async {
     HttpClient httpClient = HttpClient();

@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../common/common_bottom_nav_bar.dart';
+import '../../../utils/helpers.dart';
+import '../../../widgets/no_internet_widget.dart';
 import '../../auth/bloc/currency_bloc.dart';
 import '../../auth/bloc/currency_state.dart';
 import '../../newin/bloc/product_repository.dart';
@@ -17,6 +19,7 @@ import '../bloc/category_products_event.dart';
 import '../bloc/category_products_state.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter/rendering.dart';
+import 'package:intl/intl.dart';
 
 // Make sure to import your actual Product model
 // import 'package:aashniandco/models/product_model.dart';
@@ -89,11 +92,13 @@ import 'guest_cart_webview.dart';
 
 class MenuCategoriesScreen extends StatelessWidget {
   final String categoryName;
+  final String? urlKey;
   final String? guestQuoteId;
 
   const MenuCategoriesScreen({
     Key? key,
     required this.categoryName,
+    this.urlKey,
     this.guestQuoteId,
   }) : super(key: key);
 
@@ -106,14 +111,15 @@ class MenuCategoriesScreen extends StatelessWidget {
           sortOption: "Default",
           isReset: true,
         )),
-      child: MenuCategoriesView(categoryName: categoryName),
+      child: MenuCategoriesView(categoryName: categoryName,apiIdentifier: urlKey ?? categoryName ),
     );
   }
 }
 
 class MenuCategoriesView extends StatefulWidget {
   final String categoryName;
-  const MenuCategoriesView({Key? key, required this.categoryName})
+  final String apiIdentifier;
+  const MenuCategoriesView({Key? key, required this.categoryName,required this.apiIdentifier})
       : super(key: key);
 
   @override
@@ -135,7 +141,8 @@ class _MenuCategoriesViewState extends State<MenuCategoriesView> {
     super.initState();
     _scrollController.addListener(_onScroll);
     _categoryMetadata =
-        _apiService.fetchCategoryMetadataByName(widget.categoryName);
+        // _apiService.fetchCategoryMetadataByName(widget.categoryName);
+    _categoryMetadata = _apiService.fetchCategoryMetadataByName(widget.apiIdentifier);
   }
 
   @override
@@ -194,25 +201,45 @@ class _MenuCategoriesViewState extends State<MenuCategoriesView> {
         title:
         Text(widget.categoryName, style: const TextStyle(color: Colors.black)),
       ),
-      body: BlocListener<CategoryProductsBloc, CategoryProductsState>(
-        listener: (context, state) {
-          if (state.status == CategoryProductsStatus.success ||
-              state.status == CategoryProductsStatus.failure) {
-            setState(() {
-              _isFetching = false;
-            });
-          }
-        },
-        child: Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Column(
-            children: [
-              _buildSortHeader(),
-              const SizedBox(height: 10),
-              Expanded(child: _buildProductGrid()),
-            ],
-          ),
-        ),
+      // body: BlocListener<CategoryProductsBloc, CategoryProductsState>(
+      //   listener: (context, state) {
+      //
+      //     if (state.status == CategoryProductsStatus.success ||
+      //         state.status == CategoryProductsStatus.failure) {
+      //       setState(() {
+      //         _isFetching = false;
+      //       });
+      //     }
+      //   },
+        body: BlocConsumer<CategoryProductsBloc, CategoryProductsState>(
+            listener: (context, state) {
+              if (state.status == CategoryProductsStatus.success ||
+                  state.status == CategoryProductsStatus.failure) {
+                setState(() {
+                  _isFetching = false;
+                });
+              }
+            },
+            builder: (context, state) {
+              if (state is CategoryProductsError &&
+                  isNetworkError(state.message)) {
+                return NoInternetWidget(
+                  onRetry: () {
+                    context.read<CategoryProductsBloc>().add(LoadProducts());
+                  },
+                );
+              }
+              return Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Column(
+                  children: [
+                    _buildSortHeader(),
+                    const SizedBox(height: 10),
+                    Expanded(child: _buildProductGrid()),
+                  ],
+                ),
+              );
+            }
       ),
       bottomNavigationBar: AnimatedContainer(
         duration: const Duration(milliseconds: 300),
@@ -222,7 +249,7 @@ class _MenuCategoriesViewState extends State<MenuCategoriesView> {
         // Use a Wrap to prevent layout errors while the container is shrinking.
         child: Wrap(
           children: const [
-            CommonBottomNavBar(currentIndex: 3),
+            CommonBottomNavBar(currentIndex: 0),
           ],
         ),
       ),
@@ -318,6 +345,7 @@ class _MenuCategoriesViewState extends State<MenuCategoriesView> {
                   value: BlocProvider.of<CategoryProductsBloc>(context),
                   child: FilterBottomSheetCategories(
                     categoryId: parentCategoryId,
+                    isFromFilteredScreen: false,
                   ),
                 ),
               );
@@ -479,18 +507,31 @@ class _MenuCategoriesViewState extends State<MenuCategoriesView> {
       ),
     );
   }
-// 24/9/2025
+
   Widget _buildProductCard(Product item) {
     final currencyState = context.watch<CurrencyBloc>().state;
 
     String displaySymbol = '₹';
     double displayPrice = item.actualPrice ?? 0.0;
 
+    // 1. Logic to handle currency conversion and symbols
     if (currencyState is CurrencyLoaded) {
       displaySymbol = currencyState.selectedSymbol;
-      displayPrice =
-          (item.actualPrice ?? 0.0) * currencyState.selectedRate.rate;
+      displayPrice = (item.actualPrice ?? 0.0) * currencyState.selectedRate.rate;
     }
+
+    // 2. Define the NumberFormat (This handles the commas)
+    // locale: 'en_IN' creates commas like 1,00,000 (Indian System)
+    // locale: 'en_US' creates commas like 100,000 (International System)
+    final NumberFormat priceFormatter = NumberFormat.currency(
+      symbol: displaySymbol,
+      decimalDigits: 0,
+      locale: displaySymbol == '₹'
+          ? 'en_IN'
+          : displaySymbol == '£'
+          ? 'en_GB'
+          : 'en_US',
+    );
 
     return GestureDetector(
       onTap: () {
@@ -541,16 +582,20 @@ class _MenuCategoriesViewState extends State<MenuCategoriesView> {
                     Text(
                       item.shortDesc ?? "No description",
                       textAlign: TextAlign.center,
-                      style:
-                      const TextStyle(fontSize: 12, color: Colors.black),
+                      style: const TextStyle(fontSize: 12, color: Colors.black),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 8),
+
+                    // 3. Use the formatter here to display the price with commas
                     Text(
-                      "$displaySymbol${displayPrice.toStringAsFixed(0)}",
+                      priceFormatter.format(displayPrice),
                       style: const TextStyle(
-                          fontSize: 14, fontWeight: FontWeight.bold),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                        color: Colors.black,
+                      ),
                       textAlign: TextAlign.center,
                     ),
                   ],
@@ -562,6 +607,106 @@ class _MenuCategoriesViewState extends State<MenuCategoriesView> {
       ),
     );
   }
+// 24/9/2025
+//   Widget _buildProductCard(Product item) {
+//     final currencyState = context.watch<CurrencyBloc>().state;
+//
+//     String displaySymbol = '₹';
+//     double displayPrice = item.actualPrice ?? 0.0;
+//
+//
+//
+//
+//
+//     if (currencyState is CurrencyLoaded) {
+//       displaySymbol = currencyState.selectedSymbol;
+//       displayPrice =
+//           (item.actualPrice ?? 0.0) * currencyState.selectedRate.rate;
+//     }
+//
+//     final NumberFormat priceFormatter = NumberFormat.currency(
+//       symbol: displaySymbol,
+//       decimalDigits: 0,
+//       locale: displaySymbol == '₹'
+//           ? 'en_IN'
+//           : displaySymbol == '£'
+//           ? 'en_GB'
+//           : 'en_US',
+//     );
+//
+//     return GestureDetector(
+//       onTap: () {
+//         Navigator.push(
+//           context,
+//           MaterialPageRoute(
+//             builder: (context) =>
+//                 ProductDetailNewInDetailScreen(product: item.toJson()),
+//           ),
+//         );
+//       },
+//       child: Card(
+//         color: Colors.white,
+//         elevation: 1,
+//         clipBehavior: Clip.antiAlias,
+//         child: Column(
+//           crossAxisAlignment: CrossAxisAlignment.stretch,
+//           children: [
+//             Image.network(
+//               item.prodSmallImg ?? '',
+//               height: 250,
+//               fit: BoxFit.cover,
+//               errorBuilder: (context, error, stackTrace) {
+//                 return Container(
+//                   height: 250,
+//                   color: Colors.grey[200],
+//                   alignment: Alignment.center,
+//                   child: const Icon(Icons.broken_image,
+//                       size: 40, color: Colors.grey),
+//                 );
+//               },
+//             ),
+//             Expanded(
+//               child: Padding(
+//                 padding: const EdgeInsets.all(8.0),
+//                 child: Column(
+//                   mainAxisAlignment: MainAxisAlignment.center,
+//                   children: [
+//                     Text(
+//                       item.designerName ?? "Unknown Designer",
+//                       style: const TextStyle(
+//                           fontSize: 14, fontWeight: FontWeight.bold),
+//                       textAlign: TextAlign.center,
+//                       maxLines: 1,
+//                       overflow: TextOverflow.ellipsis,
+//                     ),
+//                     const SizedBox(height: 4),
+//                     Text(
+//                       item.shortDesc ?? "No description",
+//                       textAlign: TextAlign.center,
+//                       style:
+//                       const TextStyle(fontSize: 12, color: Colors.black),
+//                       maxLines: 2,
+//                       overflow: TextOverflow.ellipsis,
+//                     ),
+//                     const SizedBox(height: 8),
+//                     Text(
+//                         priceFormatter.format(displayPrice),
+//                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14), textAlign: TextAlign.center),
+//                     // Text(
+//                     //   "$displaySymbol${displayPrice.toStringAsFixed(0)}",
+//                     //   style: const TextStyle(
+//                     //       fontSize: 14, fontWeight: FontWeight.bold),
+//                     //   textAlign: TextAlign.center,
+//                     // ),
+//                   ],
+//                 ),
+//               ),
+//             ),
+//           ],
+//         ),
+//       ),
+//     );
+//   }
 
   // Widget _buildProductCard(Product item) {
   //   final currencyState = context.watch<CurrencyBloc>().state;

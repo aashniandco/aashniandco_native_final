@@ -401,6 +401,9 @@ class _MenuCategoriesViewState extends State<MenuCategoriesView> {
                   value: BlocProvider.of<CategoryProductsBloc>(context),
                   child: FilterBottomSheetCategories(
                     categoryId: parentCategoryId,
+                    isFromFilteredScreen: false,
+
+
                   ),
                 ),
               );

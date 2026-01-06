@@ -1,0 +1,100 @@
+{
+  "project_info": {
+    "project_number": "241612108908",
+    "project_id": "aashni-and-co",
+    "storage_bucket": "aashni-and-co.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:241612108908:android:584e3e9b1855d7e4275449",
+        "android_client_info": {
+          "package_name": "com.aashniandco.aashniandco"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "241612108908-de8k8rdefm3vbeuv2ae13ipju2i1r4ie.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.aashniandco.aashniandco",
+            "certificate_hash": "7834e9c971d60d033b50748323406626331cab99"
+          }
+        },
+        {
+          "client_id": "241612108908-uoeu6mla7oaiik9qlrcdso316h4phuf6.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.aashniandco.aashniandco",
+            "certificate_hash": "e5e4e614360f2c8f253b2df98c2c19cd89ab1e57"
+          }
+        },
+        {
+          "client_id": "241612108908-fcs7itano8jbqj4em1os7avd0b5mvtk0.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAZJ7V5CgjREvJJjMPKEImcZZQAe_vkn9k"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "241612108908-fcs7itano8jbqj4em1os7avd0b5mvtk0.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "241612108908-nt6rpotvshbnorsd7p3bd43b1adkt8jb.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.aashniandco.app.aashniandco",
+                "app_store_id": "6514299813"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:241612108908:android:dd556b41ba792084275449",
+        "android_client_info": {
+          "package_name": "com.revivify.revivify"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "241612108908-fcs7itano8jbqj4em1os7avd0b5mvtk0.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAZJ7V5CgjREvJJjMPKEImcZZQAe_vkn9k"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "241612108908-fcs7itano8jbqj4em1os7avd0b5mvtk0.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "241612108908-nt6rpotvshbnorsd7p3bd43b1adkt8jb.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.aashniandco.app.aashniandco",
+                "app_store_id": "6514299813"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

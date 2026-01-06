@@ -7,6 +7,8 @@ import 'package:aashniandco/features/login/view/login_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/material.dart';
 
+import '../../../utils/helpers.dart';
+import '../../../widgets/no_internet_widget.dart';
 import '../../auth/bloc/currency_bloc.dart';
 import '../../auth/bloc/currency_event.dart';
 import '../../auth/bloc/currency_state.dart';
@@ -58,9 +60,7 @@ import '../../shoppingbag/shopping_bag.dart'; // Assuming path is correct
 
 
 class WishlistScreen1 extends StatelessWidget {
-
-
-
+  const WishlistScreen1({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -100,11 +100,82 @@ class WishlistScreen1 extends StatelessWidget {
             ),
           ],
         ),
-        body: WishlistBody(),
+        // ✅ CHANGED: Wrapped Body in BlocBuilder to handle errors
+        body: BlocBuilder<WishlistBloc, WishlistState>(
+          builder: (context, state) {
+
+            // 1. Check for Error State
+            if (state is WishlistError) {
+              // Use the helper to check if it's a network issue
+              if (isNetworkError(state.message)) {
+                return NoInternetWidget(
+                  onRetry: () {
+                    // 🔄 Retry Logic: Trigger the start event again
+                    context.read<WishlistBloc>().add(WishlistStarted());
+                  },
+                );
+              }
+              // Optional: Handle non-internet errors here if needed
+            }
+
+            // 2. If no error, show the normal Body
+            // (WishlistBody handles Loading and Loaded states internally)
+            return WishlistBody();
+          },
+        ),
       ),
     );
   }
 }
+//14/12/2025
+// class WishlistScreen1 extends StatelessWidget {
+//
+//
+//
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     return MultiBlocProvider(
+//       providers: [
+//         BlocProvider(
+//           create: (context) =>
+//           WishlistBloc(WishlistApiService())..add(WishlistStarted()),
+//         ),
+//         BlocProvider(
+//           create: (context) =>
+//           CurrencyBloc(CurrencyService())..add(FetchCurrencyData()),
+//         ),
+//       ],
+//       child: Scaffold(
+//         backgroundColor: Colors.white,
+//         appBar: AppBar(
+//           backgroundColor: Colors.white,
+//           foregroundColor: Colors.black,
+//           elevation: 0,
+//           automaticallyImplyLeading: true,
+//           title: const Text(
+//             'Wish List',
+//             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 22),
+//           ),
+//           centerTitle: true,
+//           actions: [
+//             IconButton(icon: const Icon(Icons.search), onPressed: () {}),
+//             IconButton(
+//               icon: const Icon(Icons.shopping_bag_outlined),
+//               onPressed: () {
+//                 Navigator.push(
+//                   context,
+//                   MaterialPageRoute(builder: (context) => ShoppingBagScreen()),
+//                 );
+//               },
+//             ),
+//           ],
+//         ),
+//         body: WishlistBody(),
+//       ),
+//     );
+//   }
+// }
 
 
 
@@ -205,15 +276,39 @@ class WishlistScreen1 extends StatelessWidget {
 
 class WishlistBody extends StatelessWidget {
   Future<void> _confirmAndRemoveItem(BuildContext context, int itemId) async {
-    // ... (rest of this function is unchanged)
     final bool? confirm = await showDialog<bool>(
       context: context,
       builder: (BuildContext context) => AlertDialog(
-        title: const Text('Remove Item'),
-        content: const Text('Are you sure you want to remove this item?'),
+        backgroundColor: Colors.black, // dialog background
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        title: const Text(
+          'Remove Item',
+          style: TextStyle(color: Colors.white), // white text
+        ),
+        content: const Text(
+          'Are you sure you want to remove this item?',
+          style: TextStyle(color: Colors.white70), // slightly grey
+        ),
         actions: <Widget>[
-          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('CANCEL')),
-          TextButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('REMOVE')),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text(
+              'CANCEL',
+              style: TextStyle(color: Colors.white), // white text
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text(
+              'REMOVE',
+              style: TextStyle(
+                color: Colors.white, // white text
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -222,6 +317,25 @@ class WishlistBody extends StatelessWidget {
       context.read<WishlistBloc>().add(WishlistItemDeleted(itemId));
     }
   }
+
+  // Future<void> _confirmAndRemoveItem(BuildContext context, int itemId) async {
+  //   // ... (rest of this function is unchanged)
+  //   final bool? confirm = await showDialog<bool>(
+  //     context: context,
+  //     builder: (BuildContext context) => AlertDialog(
+  //       title: const Text('Remove Item'),
+  //       content: const Text('Are you sure you want to remove this item?'),
+  //       actions: <Widget>[
+  //         TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('CANCEL')),
+  //         TextButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('REMOVE')),
+  //       ],
+  //     ),
+  //   );
+  //
+  //   if (confirm == true) {
+  //     context.read<WishlistBloc>().add(WishlistItemDeleted(itemId));
+  //   }
+  // }
 
   @override
   Widget build(BuildContext context) {
@@ -232,7 +346,7 @@ class WishlistBody extends StatelessWidget {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('An error occurred: ${state.message}'),
-              backgroundColor: Colors.red.shade700,
+              backgroundColor: Colors.black,
             ),
           );
         }

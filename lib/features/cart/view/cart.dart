@@ -149,6 +149,7 @@ class _CartScreenState extends State<CartScreen> {
     required int quantity,
   }) async {
     final url = Uri.parse('$baseUrl/rest/V1/carts/mine/items');
+    print("url cart$url");
     final client = IOClient(HttpClient()..badCertificateCallback = (cert, host, port) => true);
 
     final body = jsonEncode({

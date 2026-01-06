@@ -144,6 +144,10 @@ class OrderItem11 {
   final String currencyCode;
   final double subtotal;
 
+  final int statusCode;     // ✅ NEW
+  final String statusText;  // ✅ NEW
+  final String tracking;
+
   OrderItem11({
     required this.name,
     required this.sku,
@@ -152,7 +156,10 @@ class OrderItem11 {
     required this.imageUrl,
     required this.status,
     required this.currencyCode,
-    required this.subtotal
+    required this.subtotal,
+    required this.statusCode,
+    required this.statusText,
+    required this.tracking,
   });
 
   factory OrderItem11.fromJson(Map<String, dynamic> json) {
@@ -165,6 +172,9 @@ class OrderItem11 {
       status: json['status'] ?? 'Pending',
       currencyCode: json['order_currency_code'] ?? 'USD',
       subtotal: (json['subtotal'] as num?)?.toDouble() ?? 0.0,
+      statusCode: json['status_code'] ?? 0,
+      statusText: json['item_status'] ?? '',
+      tracking: json['tracking'] ?? '',
     );
   }
 }

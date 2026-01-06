@@ -117,8 +117,13 @@ class FilteredProductsBloc extends Bloc<FilteredProductsEvent, FilteredProductsS
 
   Future<void> _onFetchFilteredProducts(
       FetchFilteredProducts event, Emitter<FilteredProductsState> emit) async {
+
     final currentState = state;
-    if (currentState is FilteredProductsLoaded && currentState.hasReachedEnd) return;
+
+    // Pagination Check
+    if (event.page != 0 && currentState is FilteredProductsLoaded && currentState.hasReachedEnd) {
+      return;
+    }
 
     if (event.page == 0) {
       emit(FilteredProductsLoading());
@@ -129,91 +134,169 @@ class FilteredProductsBloc extends Bloc<FilteredProductsEvent, FilteredProductsS
       httpClient.badCertificateCallback = (cert, host, port) => true;
       IOClient ioClient = IOClient(httpClient);
 
-      // --- Filter Query Building Logic (This part is correct and unchanged) ---
+      // ---------------------------------------------------------
+      // 1. BUILD THE FILTER QUERY LOGIC
+      // ---------------------------------------------------------
       Map<String, List<String>> filtersByType = {};
       for (var filter in event.selectedFilters) {
         String type = filter['type'];
         String id = filter['id'];
-        if (!filtersByType.containsKey(type)) { filtersByType[type] = []; }
+        if (!filtersByType.containsKey(type)) {
+          filtersByType[type] = [];
+        }
         filtersByType[type]!.add(id);
       }
-      List<String> queryParts = [];
+
+      List<String> queryFilters = [];
+
       filtersByType.forEach((type, ids) {
         String solrField;
-        if (type == 'categories') { solrField = 'categories-store-1_id'; }
-        else if (type == 'colors') { solrField = 'color_id'; }
-        else if (type == 'themes') { solrField = 'theme_id'; }
-        else if (type == 'sizes') { solrField = 'size_id'; }
-        else if (type == 'child_delivery_time') { solrField = 'child_delivery_time'; }
-        else if (type == 'a_co_edit') { solrField = 'a_co_edit_id'; }
-        else if (type == 'occasions') { solrField = 'occasion_id'; }
-        else { solrField = '${type.replaceAll('_', '')}_id'; }
-        queryParts.add('$solrField:(${ids.join(' OR ')})');
-      });
-      queryParts.add('actual_price_1:[2 TO *]');
-      String filterQuery = queryParts.join(' AND ');
-      if (filterQuery.isEmpty) { filterQuery = '*:*'; }
 
-      // --- NEW: API Request Body with Pagination and Server-Side Sorting ---
+        if (type == 'designer_name') {
+          // If the ID is the name itself (e.g. "11 Tareng"), use quote syntax
+          // Filter out any null or "null" strings to prevent API errors
+          final validNames = ids.where((id) => id != 'null' && id.isNotEmpty).toList();
+          if (validNames.isNotEmpty) {
+            // Creates: designer_name:("11 Tareng" OR "Other Name")
+            final joinedNames = validNames.map((n) => '"$n"').join(' OR ');
+            queryFilters.add('designer_name:($joinedNames)');
+          }
+          return; // Skip the rest of the loop
+        }
+
+
+        // --- Price Filter (User Selected) ---
+        if (type == 'price') {
+          List<String> ranges = [];
+          for (var id in ids) {
+            List<String> parts = id.split('-');
+            if (parts.length == 2) {
+              ranges.add('[${parts[0]} TO ${parts[1]}]');
+            }
+          }
+          if (ranges.isNotEmpty) {
+            // Use actual_price_1 for accuracy
+            queryFilters.add('actual_price_1:(${ranges.join(' OR ')})');
+          }
+          return;
+        }
+
+        // --- Standard Fields ---
+        if (type == 'designers') solrField = 'designer_id';
+        else if (type == 'categories') solrField = 'categories-store-1_id';
+        else if (type == 'colors') solrField = 'color_id';
+        else if (type == 'themes') solrField = 'theme_id';
+        else if (type == 'sizes') solrField = 'size_id';
+        else if (type == 'child_delivery_time') solrField = 'child_delivery_time';
+        else if (type == 'a_co_edit') solrField = 'a_co_edit_id';
+        else if (type == 'occasions') solrField = 'occasion_id';
+        else if (type == 'genders') solrField = 'gender_id';
+        else solrField = '${type.replaceAll('_', '')}_id';
+
+        queryFilters.add('$solrField:(${ids.join(' OR ')})');
+      });
+
+      // Join filters with AND (Strict filtering)
+      String userFiltersString = queryFilters.join(' AND ');
+
+      // --- Permanent Price Safety Check ---
+      // Ensures we don't get bad data with 0 price.
+      // Combined logic: (User Filters) AND Price Check
+      String finalFilterQuery;
+      if (userFiltersString.isEmpty) {
+        finalFilterQuery = "actual_price_1:[2 TO *]";
+      } else {
+        finalFilterQuery = "($userFiltersString) AND actual_price_1:[2 TO *]";
+      }
+
+      // ---------------------------------------------------------
+      // 2. CONSTRUCT API PARAMS (LocalParams Syntax)
+      // ---------------------------------------------------------
       const String flParameter =
-          "designer_name,actual_price_1,short_desc,prod_en_id,prod_small_img,"
+          "designer_name,actual_price_1,enquire_1,short_desc,prod_en_id,prod_small_img,"
           "color_name,prod_name,occasion_name,size_name,prod_sku,prod_desc,child_delivery_time";
 
+      // Sort Logic
+      String sortParameter = _getSolrSortString(event.sortOrder, event.selectedFilters);
+      if(sortParameter.isEmpty || sortParameter.contains("Default")) {
+        // Fallback to Category Position if no specific sort is chosen
+        // Note: Ensure the ID here matches your category filter (e.g., 6024 or 6023)
+        sortParameter = "cat_position_1_6024 desc, prod_en_id desc";
+      }
 
-      // --- THIS IS THE KEY CHANGE ---
-      // Pass the event's selectedFilters to the helper function.
-      final String sortParameter = _getSolrSortString(event.sortOrder, event.selectedFilters);
-      // final String sortParameter = _getSolrSortString(event.sortOrder);
+      final String rows = _pageSize.toString();
+      final String start = (event.page * _pageSize).toString();
 
+      // The Production API expects this specific syntax: {!sort=...}Query
       final String fullSolrQuery =
-          "{!sort='$sortParameter' fl='$flParameter' rows='$_pageSize' start='${event.page * _pageSize}'}$filterQuery";
+          "{!sort='$sortParameter' fl='$flParameter' rows='$rows' start='$start'}$finalFilterQuery";
 
       final body = {
-        "queryParams": { "query": fullSolrQuery }
+        "queryParams": {"query": fullSolrQuery}
       };
 
       final uri = Uri.parse(ApiConstants.url);
 
-      // --- DETAILED LOGGING ---
-      print("🚀 MAKING API REQUEST");
-      print("   URL:>> $uri");
-      print("   Sort Option: ${event.sortOrder}");
-      print("   Is Reset: ${event.page == 0}");
-      print("   Request Body: ${jsonEncode(body)}");
-      print("----------------------------------------------------");
+      print("🚀 MAKING PROD API REQUEST:>> $fullSolrQuery");
 
-      final response = await ioClient.post(uri, headers: {"Content-Type": "application/json"}, body: jsonEncode(body));
+      // ---------------------------------------------------------
+      // 3. EXECUTE POST REQUEST
+      // ---------------------------------------------------------
+      final response = await ioClient.post(
+        uri,
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode(body),
+      );
 
-      print("\n----------------------------------------------------");
-      print("✅ API RESPONSE RECEIVED");
-      print("   Status Code: ${response.statusCode}");
-      // Truncate long response bodies for cleaner logs
-      final responseBody = response.body;
-      print("   Response Body: ${responseBody.length > 500 ? responseBody.substring(0, 500) + '...' : responseBody}");
-      print("----------------------------------------------------");
-
+      // ---------------------------------------------------------
+      // 4. PROCESS RESPONSE (API WRAPPER FORMAT)
+      // ---------------------------------------------------------
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body);
-        final dataMap = decoded.firstWhere(
-              (element) => element is Map && element.containsKey('docs'),
-          orElse: () => null,
-        ) as Map<String, dynamic>?;
+
+        // API Wrapper Format: List of Maps.
+        // Index 0: Header/Params
+        // Index 1 (usually): Data with "docs" and "numFound"
+
+        // Find the block that contains 'docs'
+        final dataMap = (decoded is List)
+            ? decoded.firstWhere((e) => e is Map && e.containsKey('docs'), orElse: () => null)
+            : null;
+
+        // Find the block that contains 'numFound' (might be same as dataMap or header)
+        int? numFound;
+        if (decoded is List) {
+          final headerMap = decoded.firstWhere((e) => e is Map && e.containsKey('numFound'), orElse: () => null);
+          if (headerMap != null) numFound = headerMap['numFound'];
+        }
+
+        print("✅ PROD API numFound: $numFound");
 
         if (dataMap != null) {
           final docs = dataMap['docs'] as List? ?? [];
           final newProducts = docs.map((doc) => Product.fromJson(doc)).toList();
           final hasReachedEnd = newProducts.length < _pageSize;
 
-          final previousProducts = currentState is FilteredProductsLoaded ? currentState.products : <Product>[];
-          final allProducts = (event.page == 0) ? newProducts : previousProducts + newProducts;
+          final previousProducts =
+          (currentState is FilteredProductsLoaded && event.page != 0)
+              ? currentState.products
+              : <Product>[];
+
+          final allProducts = previousProducts + newProducts;
 
           emit(FilteredProductsLoaded(
             products: allProducts,
             hasReachedEnd: hasReachedEnd,
             currentSort: event.sortOrder,
+            numFound: numFound ?? 0,
           ));
         } else {
-          emit(FilteredProductsLoaded(products: [], hasReachedEnd: true, currentSort: event.sortOrder));
+          // No docs found
+          emit(FilteredProductsLoaded(
+            products: [],
+            hasReachedEnd: true,
+            currentSort: event.sortOrder,
+          ));
         }
       } else {
         emit(FilteredProductsError("Failed with status: ${response.statusCode}"));
@@ -222,6 +305,405 @@ class FilteredProductsBloc extends Bloc<FilteredProductsEvent, FilteredProductsS
       emit(FilteredProductsError("An error occurred: $e"));
     }
   }
+  // 33
+  // Future<void> _onFetchFilteredProducts(
+  //     FetchFilteredProducts event, Emitter<FilteredProductsState> emit) async {
+  //   final currentState = state;
+  //   if (currentState is FilteredProductsLoaded && currentState.hasReachedEnd) return;
+  //
+  //   if (event.page == 0) {
+  //     emit(FilteredProductsLoading());
+  //   }
+  //
+  //   try {
+  //     HttpClient httpClient = HttpClient();
+  //     httpClient.badCertificateCallback = (cert, host, port) => true;
+  //     IOClient ioClient = IOClient(httpClient);
+  //
+  //     // --- Filter Query Building Logic ---
+  //     Map<String, List<String>> filtersByType = {};
+  //     for (var filter in event.selectedFilters) {
+  //       String type = filter['type'];
+  //       String id = filter['id'];
+  //       if (!filtersByType.containsKey(type)) {
+  //         filtersByType[type] = [];
+  //       }
+  //       filtersByType[type]!.add(id);
+  //     }
+  //
+  //     List<String> queryParts = [];
+  //     bool hasPriceFilter = false;
+  //
+  //     filtersByType.forEach((type, ids) {
+  //       String solrField;
+  //
+  //       // --- Price Range Filter ---
+  //       if (type == 'price') {
+  //         hasPriceFilter = true;
+  //
+  //         List<String> ranges = [];
+  //         for (var id in ids) {
+  //           List<String> parts = id.split('-');
+  //           if (parts.length == 2) {
+  //             ranges.add('[${parts[0]} TO ${parts[1]}]');
+  //           }
+  //         }
+  //
+  //         if (ranges.isNotEmpty) {
+  //           queryParts.add('actual_price_1:(${ranges.join(' OR ')})');
+  //         }
+  //         return;
+  //       }
+  //
+  //       // --- Standard Filters ---
+  //       if (type == 'designers') solrField = 'designer_id';
+  //       else if (type == 'categories') solrField = 'categories-store-1_id';
+  //       else if (type == 'colors') solrField = 'color_id';
+  //       else if (type == 'themes') solrField = 'theme_id';
+  //       else if (type == 'sizes') solrField = 'size_id';
+  //       else if (type == 'child_delivery_time') solrField = 'child_delivery_time';
+  //       else if (type == 'a_co_edit') solrField = 'a_co_edit_id';
+  //       else if (type == 'occasions') solrField = 'occasion_id';
+  //       else solrField = '${type.replaceAll('_', '')}_id';
+  //
+  //       queryParts.add('$solrField:(${ids.join(' OR ')})');
+  //     });
+  //
+  //     // --- Default Price condition ---
+  //     if (!hasPriceFilter) {
+  //       queryParts.add('actual_price_1:[2 TO *]');
+  //     }
+  //
+  //     String filterQuery = queryParts.join(' AND ');
+  //     if (filterQuery.isEmpty) filterQuery = '*:*';
+  //
+  //     // --- API Params ---
+  //     const String flParameter =
+  //         "designer_name,actual_price_1,enquire_1,short_desc,prod_en_id,prod_small_img,"
+  //         "color_name,prod_name,occasion_name,size_name,prod_sku,prod_desc,child_delivery_time";
+  //
+  //     final String sortParameter =
+  //     _getSolrSortString(event.sortOrder, event.selectedFilters);
+  //
+  //     final String fullSolrQuery =
+  //         "{!sort='$sortParameter' fl='$flParameter' rows='$_pageSize' start='${event.page * _pageSize}'}$filterQuery";
+  //
+  //     final body = {
+  //       "queryParams": {"query": fullSolrQuery}
+  //     };
+  //
+  //     final uri = Uri.parse(ApiConstants.url);
+  //
+  //     // --- Debug Print ---
+  //     print("Querying: $fullSolrQuery");
+  //
+  //     final response = await ioClient.post(
+  //       uri,
+  //       headers: {"Content-Type": "application/json"},
+  //       body: jsonEncode(body),
+  //     );
+  //
+  //     if (response.statusCode == 200) {
+  //       final decoded = jsonDecode(response.body);
+  //
+  //       // -------------------------------
+  //       // ✅ PRINT RAW SOLR RESPONSE
+  //       // -------------------------------
+  //       print("SOLR RAW RESPONSE: $decoded");
+  //
+  //       // -------------------------------
+  //       // ✅ EXTRACT numFound
+  //       // -------------------------------
+  //       int? numFound;
+  //       try {
+  //         final block = decoded.firstWhere(
+  //               (e) => e is Map && e.containsKey('numFound'),
+  //           orElse: () => null,
+  //         );
+  //
+  //         if (block != null) {
+  //           numFound = block['numFound'];
+  //           print("SOLR numFound: $numFound");
+  //         }
+  //       } catch (e) {
+  //         print("numFound parsing failed: $e");
+  //       }
+  //
+  //       final dataMap = decoded.firstWhere(
+  //             (element) => element is Map && element.containsKey('docs'),
+  //         orElse: () => null,
+  //       ) as Map<String, dynamic>?;
+  //
+  //       if (dataMap != null) {
+  //         final docs = dataMap['docs'] as List? ?? [];
+  //         final newProducts = docs.map((doc) => Product.fromJson(doc)).toList();
+  //         final hasReachedEnd = newProducts.length < _pageSize;
+  //
+  //         final previousProducts =
+  //         currentState is FilteredProductsLoaded ? currentState.products : <Product>[];
+  //         final allProducts =
+  //         (event.page == 0) ? newProducts : previousProducts + newProducts;
+  //
+  //         emit(FilteredProductsLoaded(
+  //           products: allProducts,
+  //           hasReachedEnd: hasReachedEnd,
+  //           currentSort: event.sortOrder,
+  //           numFound: numFound ?? 0,  // ⬅ (optional) add in state if needed
+  //         ));
+  //       } else {
+  //         emit(FilteredProductsLoaded(
+  //           products: [],
+  //           hasReachedEnd: true,
+  //           currentSort: event.sortOrder,
+  //         ));
+  //       }
+  //     } else {
+  //       emit(FilteredProductsError("Failed with status: ${response.statusCode}"));
+  //     }
+  //   } catch (e) {
+  //     emit(FilteredProductsError("An error occurred: $e"));
+  //   }
+  // }
+
+
+// 11/12/2025
+  // Future<void> _onFetchFilteredProducts(
+  //     FetchFilteredProducts event, Emitter<FilteredProductsState> emit) async {
+  //   final currentState = state;
+  //   if (currentState is FilteredProductsLoaded && currentState.hasReachedEnd) return;
+  //
+  //   if (event.page == 0) {
+  //     emit(FilteredProductsLoading());
+  //   }
+  //
+  //   try {
+  //     HttpClient httpClient = HttpClient();
+  //     httpClient.badCertificateCallback = (cert, host, port) => true;
+  //     IOClient ioClient = IOClient(httpClient);
+  //
+  //     // --- Filter Query Building Logic ---
+  //     Map<String, List<String>> filtersByType = {};
+  //     for (var filter in event.selectedFilters) {
+  //       String type = filter['type'];
+  //       String id = filter['id'];
+  //       if (!filtersByType.containsKey(type)) { filtersByType[type] = []; }
+  //       filtersByType[type]!.add(id);
+  //     }
+  //
+  //     List<String> queryParts = [];
+  //     bool hasPriceFilter = false; // 1. Flag to check if user selected price
+  //
+  //     filtersByType.forEach((type, ids) {
+  //       String solrField;
+  //
+  //       // --- 2. Handle Price Logic Specifically ---
+  //       if (type == 'price') {
+  //         hasPriceFilter = true;
+  //         // The ID from GenericFilterScreen comes as "1000-5000"
+  //         // We need to convert it to Solr syntax: actual_price_1:[1000 TO 5000]
+  //         List<String> ranges = [];
+  //         for (var id in ids) {
+  //           List<String> parts = id.split('-');
+  //           if (parts.length == 2) {
+  //             ranges.add('[${parts[0]} TO ${parts[1]}]');
+  //           }
+  //         }
+  //         if (ranges.isNotEmpty) {
+  //           // Add to query parts: actual_price_1:([100 TO 500] OR [1000 TO 2000])
+  //           queryParts.add('actual_price_1:(${ranges.join(' OR ')})');
+  //         }
+  //         return; // Skip the rest of the loop for this iteration
+  //       }
+  //
+  //       // --- Handle Standard Filters ---
+  //       if (type == 'designers') { solrField = 'designer_id'; }
+  //       else if (type == 'categories') { solrField = 'categories-store-1_id'; }
+  //       else if (type == 'colors') { solrField = 'color_id'; }
+  //       else if (type == 'themes') { solrField = 'theme_id'; }
+  //       else if (type == 'sizes') { solrField = 'size_id'; }
+  //       else if (type == 'child_delivery_time') { solrField = 'child_delivery_time'; }
+  //       else if (type == 'a_co_edit') { solrField = 'a_co_edit_id'; }
+  //       else if (type == 'occasions') { solrField = 'occasion_id'; }
+  //       else { solrField = '${type.replaceAll('_', '')}_id'; }
+  //
+  //       queryParts.add('$solrField:(${ids.join(' OR ')})');
+  //     });
+  //
+  //     // --- 3. Only add Default Price if User didn't filter by price ---
+  //     if (!hasPriceFilter) {
+  //       queryParts.add('actual_price_1:[2 TO *]');
+  //     }
+  //
+  //     String filterQuery = queryParts.join(' AND ');
+  //     if (filterQuery.isEmpty) { filterQuery = '*:*'; }
+  //
+  //     // --- API Request Body ---
+  //     const String flParameter =
+  //         "designer_name,actual_price_1,enquire_1,short_desc,prod_en_id,prod_small_img,"
+  //         "color_name,prod_name,occasion_name,size_name,prod_sku,prod_desc,child_delivery_time";
+  //
+  //     final String sortParameter = _getSolrSortString(event.sortOrder, event.selectedFilters);
+  //
+  //     final String fullSolrQuery =
+  //         "{!sort='$sortParameter' fl='$flParameter' rows='$_pageSize' start='${event.page * _pageSize}'}$filterQuery";
+  //
+  //     final body = {
+  //       "queryParams": { "query": fullSolrQuery }
+  //     };
+  //
+  //     final uri = Uri.parse(ApiConstants.url);
+  //
+  //     // Log for debugging
+  //     print("Querying: $fullSolrQuery");
+  //
+  //     final response = await ioClient.post(uri, headers: {"Content-Type": "application/json"}, body: jsonEncode(body));
+  //
+  //     if (response.statusCode == 200) {
+  //       final decoded = jsonDecode(response.body);
+  //       final dataMap = decoded.firstWhere(
+  //             (element) => element is Map && element.containsKey('docs'),
+  //         orElse: () => null,
+  //       ) as Map<String, dynamic>?;
+  //
+  //       if (dataMap != null) {
+  //         final docs = dataMap['docs'] as List? ?? [];
+  //         final newProducts = docs.map((doc) => Product.fromJson(doc)).toList();
+  //         final hasReachedEnd = newProducts.length < _pageSize;
+  //
+  //         final previousProducts = currentState is FilteredProductsLoaded ? currentState.products : <Product>[];
+  //         final allProducts = (event.page == 0) ? newProducts : previousProducts + newProducts;
+  //
+  //         emit(FilteredProductsLoaded(
+  //           products: allProducts,
+  //           hasReachedEnd: hasReachedEnd,
+  //           currentSort: event.sortOrder,
+  //         ));
+  //       } else {
+  //         emit(FilteredProductsLoaded(products: [], hasReachedEnd: true, currentSort: event.sortOrder));
+  //       }
+  //     } else {
+  //       emit(FilteredProductsError("Failed with status: ${response.statusCode}"));
+  //     }
+  //   } catch (e) {
+  //     emit(FilteredProductsError("An error occurred: $e"));
+  //   }
+  // }
+  //10/12/2025
+  // Future<void> _onFetchFilteredProducts(
+  //     FetchFilteredProducts event, Emitter<FilteredProductsState> emit) async {
+  //   final currentState = state;
+  //   if (currentState is FilteredProductsLoaded && currentState.hasReachedEnd) return;
+  //
+  //   if (event.page == 0) {
+  //     emit(FilteredProductsLoading());
+  //   }
+  //
+  //   try {
+  //     HttpClient httpClient = HttpClient();
+  //     httpClient.badCertificateCallback = (cert, host, port) => true;
+  //     IOClient ioClient = IOClient(httpClient);
+  //
+  //     // --- Filter Query Building Logic (This part is correct and unchanged) ---
+  //     Map<String, List<String>> filtersByType = {};
+  //     for (var filter in event.selectedFilters) {
+  //       String type = filter['type'];
+  //       String id = filter['id'];
+  //       if (!filtersByType.containsKey(type)) { filtersByType[type] = []; }
+  //       filtersByType[type]!.add(id);
+  //     }
+  //     List<String> queryParts = [];
+  //     filtersByType.forEach((type, ids) {
+  //       String solrField;
+  //       // if (type == 'categories') { solrField = 'categories-store-1_id'; }
+  //       // else if (type == 'colors') { solrField = 'color_id'; }
+  //       // else if (type == 'themes') { solrField = 'theme_id'; }
+  //       // else if (type == 'sizes') { solrField = 'size_id'; }
+  //       // else if (type == 'child_delivery_time') { solrField = 'child_delivery_time'; }
+  //       // else if (type == 'a_co_edit') { solrField = 'a_co_edit_id'; }
+  //       // else if (type == 'occasions') { solrField = 'occasion_id'; }
+  //       if (type == 'designers') { solrField = 'designer_id'; }
+  //       else if (type == 'categories') { solrField = 'categories-store-1_id'; }
+  //       else if (type == 'colors') { solrField = 'color_id'; }
+  //       else if (type == 'themes') { solrField = 'theme_id'; }
+  //       else if (type == 'sizes') { solrField = 'size_id'; }
+  //       else if (type == 'child_delivery_time') { solrField = 'child_delivery_time'; }
+  //       else if (type == 'a_co_edit') { solrField = 'a_co_edit_id'; }
+  //       else if (type == 'occasions') { solrField = 'occasion_id'; }
+  //       else { solrField = '${type.replaceAll('_', '')}_id'; }
+  //       queryParts.add('$solrField:(${ids.join(' OR ')})');
+  //     });
+  //     queryParts.add('actual_price_1:[2 TO *]');
+  //     String filterQuery = queryParts.join(' AND ');
+  //     if (filterQuery.isEmpty) { filterQuery = '*:*'; }
+  //
+  //     // --- NEW: API Request Body with Pagination and Server-Side Sorting ---
+  //     const String flParameter =
+  //         "designer_name,actual_price_1,enquire_1,short_desc,prod_en_id,prod_small_img,"
+  //         "color_name,prod_name,occasion_name,size_name,prod_sku,prod_desc,child_delivery_time";
+  //
+  //
+  //     // --- THIS IS THE KEY CHANGE ---
+  //     // Pass the event's selectedFilters to the helper function.
+  //     final String sortParameter = _getSolrSortString(event.sortOrder, event.selectedFilters);
+  //     // final String sortParameter = _getSolrSortString(event.sortOrder);
+  //
+  //     final String fullSolrQuery =
+  //         "{!sort='$sortParameter' fl='$flParameter' rows='$_pageSize' start='${event.page * _pageSize}'}$filterQuery";
+  //
+  //     final body = {
+  //       "queryParams": { "query": fullSolrQuery }
+  //     };
+  //
+  //     final uri = Uri.parse(ApiConstants.url);
+  //
+  //     // --- DETAILED LOGGING ---
+  //     print("🚀 MAKING API REQUEST");
+  //     print("   URL:>> $uri");
+  //     print("   Sort Option: ${event.sortOrder}");
+  //     print("   Is Reset: ${event.page == 0}");
+  //     print("   Request Body:>>> ${jsonEncode(body)}");
+  //     print("----------------------------------------------------");
+  //
+  //     final response = await ioClient.post(uri, headers: {"Content-Type": "application/json"}, body: jsonEncode(body));
+  //
+  //     print("\n----------------------------------------------------");
+  //     print("✅ API RESPONSE RECEIVED");
+  //     print("   Status Code: ${response.statusCode}");
+  //     // Truncate long response bodies for cleaner logs
+  //     final responseBody = response.body;
+  //     print("   Response Body: ${responseBody.length > 500 ? responseBody.substring(0, 500) + '...' : responseBody}");
+  //     print("----------------------------------------------------");
+  //
+  //     if (response.statusCode == 200) {
+  //       final decoded = jsonDecode(response.body);
+  //       final dataMap = decoded.firstWhere(
+  //             (element) => element is Map && element.containsKey('docs'),
+  //         orElse: () => null,
+  //       ) as Map<String, dynamic>?;
+  //
+  //       if (dataMap != null) {
+  //         final docs = dataMap['docs'] as List? ?? [];
+  //         final newProducts = docs.map((doc) => Product.fromJson(doc)).toList();
+  //         final hasReachedEnd = newProducts.length < _pageSize;
+  //
+  //         final previousProducts = currentState is FilteredProductsLoaded ? currentState.products : <Product>[];
+  //         final allProducts = (event.page == 0) ? newProducts : previousProducts + newProducts;
+  //
+  //         emit(FilteredProductsLoaded(
+  //           products: allProducts,
+  //           hasReachedEnd: hasReachedEnd,
+  //           currentSort: event.sortOrder,
+  //         ));
+  //       } else {
+  //         emit(FilteredProductsLoaded(products: [], hasReachedEnd: true, currentSort: event.sortOrder));
+  //       }
+  //     } else {
+  //       emit(FilteredProductsError("Failed with status: ${response.statusCode}"));
+  //     }
+  //   } catch (e) {
+  //     emit(FilteredProductsError("An error occurred: $e"));
+  //   }
+  // }
 }
 
 

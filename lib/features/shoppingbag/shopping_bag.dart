@@ -23,6 +23,8 @@ import ' shipping_bloc/shipping_state.dart';
 import '../../constants/api_constants.dart';
 import '../../constants/user_preferences_helper.dart';
 // import '../login/view/login_screen.dart'; // Removed duplicate/conflicting import
+import '../../utils/helpers.dart';
+import '../../widgets/no_internet_widget.dart';
 import '../auth/bloc/currency_bloc.dart';
 import '../auth/bloc/currency_state.dart';
 import 'cart_bloc/cart_bloc.dart';
@@ -313,6 +315,7 @@ class _ShoppingBagScreenState extends State<ShoppingBagScreen> {
     if (customerToken != null && customerToken.isNotEmpty) {
       sessionType = "LOGGED-IN";
       url = Uri.parse('${ApiConstants.baseUrl}/V1/carts/mine/estimate-shipping-methods');
+     print("shoppingbag>>$url");
       headers['Authorization'] = 'Bearer $customerToken';
     } else if (guestQuoteId != null && guestQuoteId.isNotEmpty) {
       sessionType = "GUEST";
@@ -349,6 +352,22 @@ class _ShoppingBagScreenState extends State<ShoppingBagScreen> {
       final errorBody = json.decode(response.body);
       throw Exception(errorBody['message'] ?? "Failed to fetch shipping methods.");
     }
+  }
+
+  Future<void> _redirectToLogin() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('isUserLoggedIn');
+    await prefs.remove('user_token');
+    // Optional: clear other user-specific data
+
+    if (!mounted) return;
+
+    // Navigate and clear the navigation stack so they can't go back
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (context) => const LoginScreen1()),
+          (route) => false,
+    );
   }
 
   Future<void> _triggerShippingMethodUpdate() async {
@@ -393,10 +412,17 @@ class _ShoppingBagScreenState extends State<ShoppingBagScreen> {
       _saveShippingPreferences();
 
     } catch (e) {
+
       if (!mounted) return;
+
+      if (e.toString().contains("The consumer isn't authorized to access %resources")) {
+        _redirectToLogin();
+        return;
+      }
+
       if (kDebugMode) print("Error fetching shipping methods: $e");
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+        SnackBar(content: Text(e.toString()), backgroundColor: Colors.grey),
       );
       setState(() {
         availableShippingMethods = [];
@@ -487,6 +513,7 @@ class _ShoppingBagScreenState extends State<ShoppingBagScreen> {
     if (isLoading) {
       return Scaffold(
         appBar: AppBar(title: const Text('Shopping Bag')),
+        backgroundColor: Colors.white,
         body: const Center(child: CircularProgressIndicator()),
       );
     }
@@ -533,28 +560,53 @@ class _ShoppingBagScreenState extends State<ShoppingBagScreen> {
         ),
         // --- START OF THE FIX ---
         // Add this new listener for CartBloc to handle coupon errors.
+        //26/12/2025
+        // BlocListener<CartBloc, CartState>(
+        //   // Use listenWhen to only trigger if the state is CartLoaded and a couponError has just appeared.
+        //   listenWhen: (previous, current) {
+        //     if (current is CartLoaded) {
+        //       // Trigger if there's a new error message.
+        //       return current.couponError != null;
+        //     }
+        //     return false;
+        //   },
+        //   listener: (context, state) {
+        //     // Because of listenWhen, we know 'state' is a CartLoaded instance.
+        //     final loadedState = state as CartLoaded;
+        //
+        //     // Show the dialog with the error message from the state.
+        //     _showCouponErrorDialog(loadedState.couponError!);
+        //
+        //     // IMPORTANT: Immediately dispatch an event to clear the error from the state.
+        //     // This prevents the dialog from showing again on the next rebuild.
+        //     context.read<CartBloc>().add(ClearCouponError());
+        //   },
+        // ),
+
+
+        // --- END OF THE FIX ---
+
         BlocListener<CartBloc, CartState>(
-          // Use listenWhen to only trigger if the state is CartLoaded and a couponError has just appeared.
-          listenWhen: (previous, current) {
-            if (current is CartLoaded) {
-              // Trigger if there's a new error message.
-              return current.couponError != null;
-            }
-            return false;
-          },
           listener: (context, state) {
-            // Because of listenWhen, we know 'state' is a CartLoaded instance.
-            final loadedState = state as CartLoaded;
+            // 1. Handle AUTHENTICATION Errors (CartError State)
+            if (state is CartError) {
+              if (state.message.contains("The consumer isn't authorized to access %resources")) {
+                _redirectToLogin(); // Direct navigation to Login
+                return;
+              }
+            }
 
-            // Show the dialog with the error message from the state.
-            _showCouponErrorDialog(loadedState.couponError!);
+            // 2. Handle COUPON Errors (CartLoaded State)
+            if (state is CartLoaded) {
+              if (state.couponError != null) {
+                _showCouponErrorDialog(state.couponError!);
 
-            // IMPORTANT: Immediately dispatch an event to clear the error from the state.
-            // This prevents the dialog from showing again on the next rebuild.
-            context.read<CartBloc>().add(ClearCouponError());
+                // Clear error immediately so the dialog doesn't pop up again on rebuild
+                context.read<CartBloc>().add(ClearCouponError());
+              }
+            }
           },
         ),
-        // --- END OF THE FIX ---
         BlocListener<CartBloc, CartState>(
           listenWhen: (previous, current) {
             // Re-fetch shipping methods whenever the cart content changes.
@@ -578,6 +630,7 @@ class _ShoppingBagScreenState extends State<ShoppingBagScreen> {
       ],
       child: Scaffold(
         appBar: AppBar(
+          backgroundColor: Colors.white,
           title: const Text('Shopping Bag'),
           leading: IconButton(
             icon: Icon(Platform.isIOS ? Icons.arrow_back_ios : Icons.arrow_back),
@@ -585,8 +638,29 @@ class _ShoppingBagScreenState extends State<ShoppingBagScreen> {
                 context, MaterialPageRoute(builder: (context) => const AuthScreen()), (r) => false),
           ),
         ),
+        backgroundColor: Colors.white,
         body: BlocBuilder<CartBloc, CartState>(
           builder: (context, state) {
+
+            ///
+            if (state is CartError) {
+
+              //26/12/2025
+              if (state.message.contains("The consumer isn't authorized")) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              // Use the helper to check if it's a network issue
+              if (isNetworkError(state.message)) {
+                return NoInternetWidget(
+                  onRetry: () {
+                    // 🔄 Retry Logic: Trigger the start event again
+                    context.read<CartBloc>().add(FetchCartItems());
+                  },
+                );
+              }
+              // Optional: Handle non-internet errors here if needed
+            }
             // Handle loading and initial states for the cart.
             if (state is CartLoading || state is CartInitial) {
               return const Center(child: CircularProgressIndicator());
@@ -1222,13 +1296,10 @@ class _ShoppingBagScreenState extends State<ShoppingBagScreen> {
     );
   }
 
-
   Widget _buildCouponSection(CartLoaded cartState) {
-    // Check if a coupon is already applied from the totals data
     final String appliedCouponCode = cartState.totals?['coupon_code'] ?? '';
     final bool isCouponApplied = appliedCouponCode.isNotEmpty;
 
-    // Set the text field if a coupon is already applied
     if (isCouponApplied) {
       _couponController.text = appliedCouponCode;
     }
@@ -1236,42 +1307,176 @@ class _ShoppingBagScreenState extends State<ShoppingBagScreen> {
     return Row(
       children: [
         Expanded(
-          child: IgnorePointer(
-            ignoring: isCouponApplied,
-            child: TextField(
-              controller: _couponController,
-              readOnly: isCouponApplied, // Make read-only if coupon is applied
-              decoration: InputDecoration(
-                  hintText: 'Enter coupon code',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                  filled: true,
-                  fillColor: Colors.white),
+          child: TextField(
+            controller: _couponController,
+            readOnly: isCouponApplied,
+            decoration: InputDecoration(
+              hintText: 'Enter coupon code',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              filled: true,
+              fillColor: Colors.white,
+
+              // 👉 Show X icon only when coupon applied
+              suffixIcon: isCouponApplied
+                  ? GestureDetector(
+                onTap: () {
+                  _couponController.clear();
+                  context.read<CartBloc>().add(RemoveCoupon());
+                },
+                child: const Icon(
+                  Icons.close,
+                  color: Colors.black,
+                  size: 18,
+                ),
+              )
+                  : null,
             ),
           ),
         ),
+
         const SizedBox(width: 12),
-        ElevatedButton(
+
+        // 👉 APPLY BUTTON – show only when no coupon is applied
+        if (!isCouponApplied)
+          ElevatedButton(
             onPressed: () {
-              if (isCouponApplied) {
-                // If coupon is applied, the button should trigger remove
-                _couponController.clear();
-                context.read<CartBloc>().add( RemoveCoupon());
-              } else {
-                // Otherwise, apply the coupon from the text field
-                final code = _couponController.text.trim();
-                if (code.isNotEmpty) {
-                  context.read<CartBloc>().add(ApplyCoupon(code));
-                }
+              final code = _couponController.text.trim();
+              if (code.isNotEmpty) {
+                context.read<CartBloc>().add(ApplyCoupon(code));
               }
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: isCouponApplied ? Colors.red : Colors.black,
+              backgroundColor: Colors.black,
               foregroundColor: Colors.white,
+              minimumSize: const Size(60, 50),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
-            child: Text(isCouponApplied ? "Cancel" : "Apply")),
+            child: const Text("Apply"),
+          ),
       ],
     );
   }
+
+  // Widget _buildCouponSection(CartLoaded cartState) {
+  //   final String appliedCouponCode = cartState.totals?['coupon_code'] ?? '';
+  //   final bool isCouponApplied = appliedCouponCode.isNotEmpty;
+  //
+  //   if (isCouponApplied) {
+  //     _couponController.text = appliedCouponCode;
+  //   }
+  //
+  //   return Row(
+  //     children: [
+  //       Expanded(
+  //         child: TextField(
+  //           controller: _couponController,
+  //           readOnly: isCouponApplied, // make readonly when applied
+  //           decoration: InputDecoration(
+  //             hintText: 'Enter coupon code',
+  //             border: OutlineInputBorder(
+  //               borderRadius: BorderRadius.circular(8),
+  //             ),
+  //             filled: true,
+  //             fillColor: Colors.white,
+  //
+  //             // 👉 X icon inside TextField
+  //             suffixIcon: isCouponApplied
+  //                 ? GestureDetector(
+  //               onTap: () {
+  //                 _couponController.clear();
+  //                 context.read<CartBloc>().add(RemoveCoupon());
+  //               },
+  //               child: const Icon(
+  //                 Icons.close,
+  //                 color: Colors.black,
+  //                 size: 18,
+  //               ),
+  //             )
+  //                 : null,
+  //           ),
+  //         ),
+  //       ),
+  //
+  //       const SizedBox(width: 12),
+  //
+  //       // 👉 Apply button only (no Cancel button)
+  //       ElevatedButton(
+  //         onPressed: () {
+  //           if (!isCouponApplied) {
+  //             final code = _couponController.text.trim();
+  //             if (code.isNotEmpty) {
+  //               context.read<CartBloc>().add(ApplyCoupon(code));
+  //             }
+  //           }
+  //         },
+  //         style: ElevatedButton.styleFrom(
+  //           backgroundColor: Colors.black,
+  //           foregroundColor: Colors.white,
+  //           minimumSize: const Size(60, 50),
+  //           shape: RoundedRectangleBorder(
+  //             borderRadius: BorderRadius.circular(8),
+  //           ),
+  //         ),
+  //         child: const Text("Apply"),
+  //       ),
+  //     ],
+  //   );
+  // }
+
+
+  // Widget _buildCouponSection(CartLoaded cartState) {
+  //   // Check if a coupon is already applied from the totals data
+  //   final String appliedCouponCode = cartState.totals?['coupon_code'] ?? '';
+  //   final bool isCouponApplied = appliedCouponCode.isNotEmpty;
+  //
+  //   // Set the text field if a coupon is already applied
+  //   if (isCouponApplied) {
+  //     _couponController.text = appliedCouponCode;
+  //   }
+  //
+  //   return Row(
+  //     children: [
+  //       Expanded(
+  //         child: IgnorePointer(
+  //           ignoring: isCouponApplied,
+  //           child: TextField(
+  //             controller: _couponController,
+  //             readOnly: isCouponApplied, // Make read-only if coupon is applied
+  //             decoration: InputDecoration(
+  //                 hintText: 'Enter coupon code',
+  //                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+  //                 filled: true,
+  //                 fillColor: Colors.white),
+  //           ),
+  //         ),
+  //       ),
+  //       const SizedBox(width: 12),
+  //       ElevatedButton(
+  //           onPressed: () {
+  //             if (isCouponApplied) {
+  //               // If coupon is applied, the button should trigger remove
+  //               _couponController.clear();
+  //               context.read<CartBloc>().add( RemoveCoupon());
+  //             } else {
+  //               // Otherwise, apply the coupon from the text field
+  //               final code = _couponController.text.trim();
+  //               if (code.isNotEmpty) {
+  //                 context.read<CartBloc>().add(ApplyCoupon(code));
+  //               }
+  //             }
+  //           },
+  //           style: ElevatedButton.styleFrom(
+  //             backgroundColor: isCouponApplied ? Colors.red : Colors.black,
+  //             foregroundColor: Colors.white,
+  //           ),
+  //           child: Text(isCouponApplied ? "Cancel" : "Apply")),
+  //     ],
+  //   );
+  // }
 
   // Widget _buildCouponSection() {
   //   return Row(
@@ -1314,9 +1519,9 @@ class _ShoppingBagScreenState extends State<ShoppingBagScreen> {
           foregroundColor: Colors.white,
           shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
           padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-          minimumSize: const Size(250, 50),
+          minimumSize: const Size(350, 50),
         ),
-        child: const Text("PROCEED TO CHECKOUT", style: TextStyle(fontWeight: FontWeight.bold)),
+        child: const Text("CHECKOUT", style: TextStyle(fontWeight: FontWeight.bold,fontSize: 16)),
       ),
     );
   }
@@ -1348,8 +1553,15 @@ class _ShoppingBagScreenState extends State<ShoppingBagScreen> {
       ],
     );
   }
+  bool isNetworkError(String message) {
+    return message.contains("SocketException") ||
+        message.contains("ClientException") ||
+        message.contains("Failed host lookup");
+  }
 }
 
+
+//fl
 //   class ShoppingBagScreen extends StatefulWidget {
 //     const ShoppingBagScreen({super.key});
 //

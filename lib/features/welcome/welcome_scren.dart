@@ -14,7 +14,6 @@ final Color buttonLight = Colors.grey[700]!;
 final Color textGrey = Colors.grey[400]!;
 
 
-
 class WelcomeScreen extends StatefulWidget {
   @override
   _WelcomeScreenState createState() => _WelcomeScreenState();
@@ -29,122 +28,102 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     _checkLoginStatus();
   }
 
+  // Future<void> _checkLoginStatus() async {
+  //   await Future.delayed(const Duration(milliseconds: 500)); // wait before access prefs
+  //   final prefs = await SharedPreferences.getInstance();
+  //   final userToken = prefs.getString('user_token');
+  //   print('🧩 User token: $userToken');
+  //
+  //   if (userToken != null && userToken.isNotEmpty) {
+  //     WidgetsBinding.instance.addPostFrameCallback((_) {
+  //       Navigator.pushAndRemoveUntil(
+  //         context,
+  //         MaterialPageRoute(builder: (_) => AuthScreen()),
+  //             (route) => false,
+  //       );
+  //     });
+  //   } else {
+  //     setState(() {
+  //       _isCheckingLogin = false;
+  //     });
+  //   }
+  // }
   Future<void> _checkLoginStatus() async {
-    final prefs = await SharedPreferences.getInstance();
+    await Future.delayed(const Duration(milliseconds: 300));
+    SharedPreferences prefs;
+    try {
+      prefs = await SharedPreferences.getInstance();
+    } catch (e) {
+      debugPrint('⚠️ SharedPreferences error: $e');
+      setState(() => _isCheckingLogin = false);
+      return;
+    }
+
     final userToken = prefs.getString('user_token');
+    debugPrint('🧩 User token: $userToken');
 
     if (userToken != null && userToken.isNotEmpty) {
-      // ✅ User is logged in → navigate directly to AuthScreen (or ProfileScreen)
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (_) => AuthScreen()),
-            (route) => false,
-      );
-    } else {
-      // ❌ User not logged in → show welcome screen
-      setState(() {
-        _isCheckingLogin = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => AuthScreen()),
+              (route) => false,
+        );
       });
+    } else {
+      setState(() => _isCheckingLogin = false);
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    if (_isCheckingLogin) {
-      // While checking login, show a loading indicator
+    @override
+    Widget build(BuildContext context) {
+      if (_isCheckingLogin) {
+        return Scaffold(
+          backgroundColor: Colors.black,
+          body: const Center(
+            child: CircularProgressIndicator(color: Colors.white),
+          ),
+        );
+      }
+
       return Scaffold(
-        backgroundColor: primaryDark,
+        backgroundColor: Colors.black,
         body: Center(
-          child: CircularProgressIndicator(color: textGrey),
-        ),
-      );
-    }
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: <Widget>[
+                const Text('Welcome', style: TextStyle(color: Colors.white, fontSize: 48, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 16),
+                const Text('Choose an option to continue', style: TextStyle(color: Colors.grey, fontSize: 18)),
+                const SizedBox(height: 60),
 
-    return Scaffold(
-      backgroundColor: primaryDark,
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: <Widget>[
-              Text(
-                'Welcome',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 48,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.5,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Choose an option to continue',
-                style: TextStyle(
-                  color: textGrey,
-                  fontSize: 18,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 60),
+                _buildElevatedButton(context, text: 'Log In', onPressed: () {
+                  Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => LoginScreen1()));
+                }, gradientColors: [Colors.black, Colors.black]),
 
-              // Log In
-              _buildElevatedButton(
-                context,
-                text: 'Log In',
-                onPressed: () {
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(builder: (_) => LoginScreen1()),
-                  );
+                const SizedBox(height: 20),
+                _buildElevatedButton(context, text: 'Sign Up', onPressed: () {
+                  Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => SignupScreen()));
+                }, gradientColors: [Colors.black, Colors.black]),
 
-                  // Navigator.pushReplacement(
-                  //   context,
-                  //   MaterialPageRoute(builder: (_) => const WebViewLoginScreen()),
-                  // );
-                },
-                gradientColors: [buttonDark, buttonMedium],
-              ),
-              const SizedBox(height: 20),
-
-              // Sign Up
-              _buildElevatedButton(
-                context,
-                text: 'Sign Up',
-                onPressed: () {
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(builder: (_) => SignupScreen()),
-                  );
-                },
-                gradientColors: [buttonMedium, buttonLight],
-              ),
-              const SizedBox(height: 20),
-
-              // Continue as Guest
-              _buildElevatedButton(
-                context,
-                text: 'Continue as Guest',
-                onPressed: () {
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(builder: (_) => AuthScreen()),
-                  );
-                },
-                gradientColors: [buttonLight, Colors.grey[600]!],
-              ),
-            ],
+                const SizedBox(height: 20),
+                // _buildElevatedButton(context, text: 'Continue as Guest', onPressed: () {
+                //   Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => AuthScreen()));
+                // }, gradientColors: [Colors.black, Colors.black]),
+              ],
+            ),
           ),
         ),
-      ),
-    );
-  }
+      );
+    }
 
   Widget _buildElevatedButton(
       BuildContext context, {
         required String text,
         required VoidCallback onPressed,
-        required List<Color> gradientColors,
+        required List<Color> gradientColors, // not used anymore
       }) {
     return SizedBox(
       width: double.infinity,
@@ -152,39 +131,212 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(
           padding: EdgeInsets.zero,
-          backgroundColor: Colors.transparent,
-          elevation: 5,
+          backgroundColor: Colors.white24,  // ← Simple black background
+          shadowColor: Colors.transparent,
+          elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
+            side: const BorderSide(color: Colors.white, width: 1.5), // white border
           ),
         ),
         onPressed: onPressed,
-        child: Ink(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(colors: gradientColors),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Container(
-            alignment: Alignment.center,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  text,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                const Icon(Icons.arrow_forward_ios, size: 20, color: Colors.white),
-              ],
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              text,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
             ),
-          ),
+            const SizedBox(width: 10),
+            const Icon(
+              Icons.arrow_forward_ios,
+              size: 20,
+              color: Colors.white,
+            ),
+          ],
         ),
       ),
     );
   }
-}
+
+
+  }
+
+
+// class WelcomeScreen extends StatefulWidget {
+//   @override
+//   _WelcomeScreenState createState() => _WelcomeScreenState();
+// }
+//
+// class _WelcomeScreenState extends State<WelcomeScreen> {
+//   bool _isCheckingLogin = true;
+//
+//   @override
+//   void initState() {
+//     super.initState();
+//     _checkLoginStatus();
+//   }
+//
+//   Future<void> _checkLoginStatus() async {
+//     final prefs = await SharedPreferences.getInstance();
+//     final userToken = prefs.getString('user_token');
+//
+//     if (userToken != null && userToken.isNotEmpty) {
+//       // ✅ User is logged in → navigate directly to AuthScreen (or ProfileScreen)
+//       Navigator.pushAndRemoveUntil(
+//         context,
+//         MaterialPageRoute(builder: (_) => AuthScreen()),
+//             (route) => false,
+//       );
+//     } else {
+//       // ❌ User not logged in → show welcome screen
+//       setState(() {
+//         _isCheckingLogin = false;
+//       });
+//     }
+//   }
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     if (_isCheckingLogin) {
+//       // While checking login, show a loading indicator
+//       return Scaffold(
+//         backgroundColor: primaryDark,
+//         body: Center(
+//           child: CircularProgressIndicator(color: textGrey),
+//         ),
+//       );
+//     }
+//
+//     return Scaffold(
+//       backgroundColor: primaryDark,
+//       body: Center(
+//         child: Padding(
+//           padding: const EdgeInsets.all(24.0),
+//           child: Column(
+//             mainAxisAlignment: MainAxisAlignment.center,
+//             children: <Widget>[
+//               Text(
+//                 'Welcome',
+//                 style: TextStyle(
+//                   color: Colors.white,
+//                   fontSize: 48,
+//                   fontWeight: FontWeight.bold,
+//                   letterSpacing: 1.5,
+//                 ),
+//               ),
+//               const SizedBox(height: 16),
+//               Text(
+//                 'Choose an option to continue',
+//                 style: TextStyle(
+//                   color: textGrey,
+//                   fontSize: 18,
+//                 ),
+//                 textAlign: TextAlign.center,
+//               ),
+//               const SizedBox(height: 60),
+//
+//               // Log In
+//               _buildElevatedButton(
+//                 context,
+//                 text: 'Log In',
+//                 onPressed: () {
+//                   Navigator.pushReplacement(
+//                     context,
+//                     MaterialPageRoute(builder: (_) => LoginScreen1()),
+//                   );
+//
+//                   // Navigator.pushReplacement(
+//                   //   context,
+//                   //   MaterialPageRoute(builder: (_) => const WebViewLoginScreen()),
+//                   // );
+//                 },
+//                 gradientColors: [buttonDark, buttonMedium],
+//               ),
+//               const SizedBox(height: 20),
+//
+//               // Sign Up
+//               _buildElevatedButton(
+//                 context,
+//                 text: 'Sign Up',
+//                 onPressed: () {
+//                   Navigator.pushReplacement(
+//                     context,
+//                     MaterialPageRoute(builder: (_) => SignupScreen()),
+//                   );
+//                 },
+//                 gradientColors: [buttonMedium, buttonLight],
+//               ),
+//               const SizedBox(height: 20),
+//
+//               // Continue as Guest
+//               _buildElevatedButton(
+//                 context,
+//                 text: 'Continue as Guest',
+//                 onPressed: () {
+//                   Navigator.pushReplacement(
+//                     context,
+//                     MaterialPageRoute(builder: (_) => AuthScreen()),
+//                   );
+//                 },
+//                 gradientColors: [buttonLight, Colors.grey[600]!],
+//               ),
+//             ],
+//           ),
+//         ),
+//       ),
+//     );
+//   }
+//
+//   Widget _buildElevatedButton(
+//       BuildContext context, {
+//         required String text,
+//         required VoidCallback onPressed,
+//         required List<Color> gradientColors,
+//       }) {
+//     return SizedBox(
+//       width: double.infinity,
+//       height: 55,
+//       child: ElevatedButton(
+//         style: ElevatedButton.styleFrom(
+//           padding: EdgeInsets.zero,
+//           backgroundColor: Colors.transparent,
+//           elevation: 5,
+//           shape: RoundedRectangleBorder(
+//             borderRadius: BorderRadius.circular(12),
+//           ),
+//         ),
+//         onPressed: onPressed,
+//         child: Ink(
+//           decoration: BoxDecoration(
+//             gradient: LinearGradient(colors: gradientColors),
+//             borderRadius: BorderRadius.circular(12),
+//           ),
+//           child: Container(
+//             alignment: Alignment.center,
+//             child: Row(
+//               mainAxisAlignment: MainAxisAlignment.center,
+//               children: [
+//                 Text(
+//                   text,
+//                   style: const TextStyle(
+//                     color: Colors.white,
+//                     fontSize: 18,
+//                     fontWeight: FontWeight.bold,
+//                   ),
+//                 ),
+//                 const SizedBox(width: 10),
+//                 const Icon(Icons.arrow_forward_ios, size: 20, color: Colors.white),
+//               ],
+//             ),
+//           ),
+//         ),
+//       ),
+//     );
+//   }
+// }
 

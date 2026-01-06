@@ -13,6 +13,7 @@ class WishlistScreen extends StatefulWidget {
 class _WishlistScreenState extends State<WishlistScreen> {
   @override
   Widget build(BuildContext context) {
+    // primary color
     return Scaffold(
       appBar: AppBar(
         title: Image.asset(

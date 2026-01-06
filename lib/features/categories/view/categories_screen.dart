@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../common/common_app_bar.dart';
 import '../../../common/common_bottom_nav_bar.dart';
+import '../../../utils/helpers.dart';
+import '../../../widgets/no_internet_widget.dart';
 import '../../auth/bloc/currency_bloc.dart';
 import '../../auth/bloc/currency_event.dart';
 import '../../auth/bloc/currency_state.dart';
@@ -12,6 +14,7 @@ import '../../search/presentation/search_screen.dart';
 import '../bloc/megamenu_bloc.dart';
 import '../bloc/megamenu_event.dart';
 import '../bloc/megamenu_state.dart';
+import '../model/megamenu_model.dart';
 import '../repository/megamenu_repository.dart';
 import 'menu_categories_screen.dart';
 import 'menu_categories_screen1.dart'; // Make sure this import is correct
@@ -27,6 +30,56 @@ import 'menu_categories_screen1.dart'; // Make sure this import is correct
 //   }
 // }
 
+bool isNetworkError(String message) {
+  return message.contains("SocketException") ||
+      message.contains("ClientException") ||
+      message.contains("Failed host lookup") ||
+      message.contains("Connection refused");
+}
+
+/// Reusable No Internet Widget
+class NoInternetWidget extends StatelessWidget {
+  final VoidCallback onRetry;
+
+  const NoInternetWidget({Key? key, required this.onRetry}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.wifi_off_rounded, size: 80, color: Colors.grey[400]),
+            const SizedBox(height: 20),
+            const Text(
+              "No Internet Connection",
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 10),
+            const Text(
+              "Please check your connection and try again.",
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey),
+            ),
+            const SizedBox(height: 30),
+            ElevatedButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh),
+              label: const Text("Retry"),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.black,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 12),
+              ),
+            )
+          ],
+        ),
+      ),
+    );
+  }
+}
 class CategoriesPage extends StatelessWidget {
   const CategoriesPage({super.key});
 
@@ -58,8 +111,15 @@ class CategoriesPage extends StatelessWidget {
 }
 
 class CategoriesView extends StatelessWidget {
-  void _navigateToMenuScreen(BuildContext context, String categoryName) {
+  const CategoriesView({super.key});
+
+  void _navigateToMenuScreen(BuildContext context, MegamenuItem item) {
+    // We get the name from the item object
+    final categoryName = item.name;
     final nameLower = categoryName.toLowerCase();
+
+    // You can also access item.url here if you need it later!
+    // print("URL: ${item.url}");
 
     if (nameLower.contains('designers')) {
       Navigator.push(
@@ -76,164 +136,27 @@ class CategoriesView extends StatelessWidget {
     }
   }
 
-  // Widget _buildResponsiveAppBarTitle() {
-  //   print("met called>>");
-  //   // This BlocBuilder will automatically handle loading, errors, and data states
-  //   return BlocBuilder<CurrencyBloc, CurrencyState>(
-  //     builder: (context, state) {
-  //       // --- Handle Loading and Error States First ---
-  //       if (state is CurrencyLoading || state is CurrencyInitial) {
-  //         return const Center(
-  //           child: SizedBox(
-  //             height: 20,
-  //             width: 20,
-  //             child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black54),
-  //           ),
-  //         );
-  //       }
-  //       if (state is CurrencyError) {
-  //         return Tooltip(
-  //           message: state.message,
-  //           child: const Icon(Icons.error_outline, color: Colors.red),
-  //         );
-  //       }
-  //
-  //
-  //       // --- Handle the Success State ---
-  //       if (state is CurrencyLoaded) {
-  //         // ✅ Wrap the logo and the dropdown in a Row for side-by-side layout.
-  //         return Row(
-  //           children: [
-  //             // 1. Add the logo as the first item in the Row.
-  //             Image.asset('assets/logo.jpeg', height: 30),
-  //             const SizedBox(width: 16),
-  //
-  //
-  //             // 2. Wrap the Dropdown in an Expanded widget.
-  //             // This tells the dropdown to fill all remaining horizontal space in the AppBar.
-  //             // Expanded(
-  //             //   child: DropdownButtonHideUnderline(
-  //             //     child: DropdownButton<String>(
-  //             //       value: state.selectedCurrencyCode,
-  //             //       isExpanded: true, // Ensures it fills the Expanded widget
-  //             //       icon: const Icon(Icons.keyboard_arrow_down, color: Colors.black87),
-  //             //       onChanged: (newCode) {
-  //             //         if (newCode != null) {
-  //             //           context.read<CurrencyBloc>().add(ChangeCurrency(newCode));
-  //             //           _updateCartCurrency(newCode);
-  //             //         }
-  //             //       },
-  //             //       // This builder defines how the selected item looks when the dropdown is CLOSED.
-  //             //       selectedItemBuilder: (context) {
-  //             //         return state.currencyData.availableCurrencyCodes
-  //             //             .map((_) => Align(
-  //             //           alignment: Alignment.centerLeft,
-  //             //           child: Text(
-  //             //             '${state.selectedCurrencyCode} | ${state.selectedSymbol}',
-  //             //             style: const TextStyle(
-  //             //                 color: Colors.black,
-  //             //                 fontWeight: FontWeight.w500,
-  //             //                 fontSize: 14 // Adjusted for better fit
-  //             //             ),
-  //             //             overflow: TextOverflow.ellipsis,
-  //             //           ),
-  //             //         ))
-  //             //             .toList();
-  //             //       },
-  //             //       // This builds the list of items when the dropdown is OPEN.
-  //             //       items: state.currencyData.availableCurrencyCodes.map((code) {
-  //             //         return DropdownMenuItem<String>(
-  //             //           value: code,
-  //             //           child: Text(code),
-  //             //         );
-  //             //       }).toList(),
-  //             //     ),
-  //             //   ),
-  //             // ),
-  //           ],
-  //         );
-  //       }
-  //
-  //
-  //       // Fallback for any other unhandled state
-  //       return const SizedBox.shrink();
-  //     },
-  //   );
-  // }
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // appBar: AppBar(
-      //   title: _buildResponsiveAppBarTitle(),
-      //   elevation: 0,
-      //   backgroundColor: Colors.white,
-      //   foregroundColor: Colors.black,
-      //   // ✅ The 'bottom' property is now REMOVED to hide the TabBar
-      //   actions: [
-      //     // IconButton(
-      //     //   icon: const Icon(Icons.search),
-      //     //   onPressed: () {
-      //     //     showDialog(
-      //     //       context: context,
-      //     //       builder: (context) => const SearchScreen1(),
-      //     //     );
-      //     //   },
-      //     // ),
-      //     // IconButton(
-      //     //   icon: Stack(
-      //     //     clipBehavior: Clip.none,
-      //     //     children: [
-      //     //       const Icon(Icons.shopping_bag_rounded, color: Colors.black),
-      //     //       if (cartQty > 0)
-      //     //         Positioned(
-      //     //           right: -6,
-      //     //           top: -6,
-      //     //           child: Container(
-      //     //             padding: const EdgeInsets.all(2),
-      //     //             decoration: BoxDecoration(
-      //     //               color: Colors.red,
-      //     //               borderRadius: BorderRadius.circular(10),
-      //     //             ),
-      //     //             constraints:
-      //     //             const BoxConstraints(minWidth: 18, minHeight: 18),
-      //     //             child: Text(
-      //     //               '$cartQty',
-      //     //               style: const TextStyle(
-      //     //                 color: Colors.white,
-      //     //                 fontSize: 12,
-      //     //                 fontWeight: FontWeight.bold,
-      //     //               ),
-      //     //               textAlign: TextAlign.center,
-      //     //             ),
-      //     //           ),
-      //     //         ),
-      //     //     ],
-      //     //   ),
-      //     //   onPressed: () {
-      //     //     Navigator.push(
-      //     //       context,
-      //     //       MaterialPageRoute(builder: (context) => ShoppingBagScreen()),
-      //     //     );
-      //     //   },
-      //     // ),
-      //   ],
-      // ),
       backgroundColor: Colors.white,
       body: BlocBuilder<MegamenuBloc, MegamenuState>(
         builder: (context, state) {
           if (state is MegamenuLoading) {
             return const Center(child: CircularProgressIndicator());
           } else if (state is MegamenuLoaded) {
-            final categories = state.menuNames;
+            final categories = state.menuItems;
 
             return ListView.builder(
               padding: const EdgeInsets.all(12.0),
               itemCount: categories.length,
               itemBuilder: (context, index) {
-                final name = categories[index];
+                // ✅ Fix 1: Define 'item'
+                final item = categories[index];
 
                 return GestureDetector(
-                  onTap: () => _navigateToMenuScreen(context, name),
+                  // ✅ Fix 2: Pass 'item' correctly
+                  onTap: () => _navigateToMenuScreen(context, item),
                   child: Card(
                     elevation: 2,
                     margin: const EdgeInsets.only(bottom: 10.0),
@@ -246,7 +169,8 @@ class CategoriesView extends StatelessWidget {
                       alignment: Alignment.center,
                       padding: const EdgeInsets.symmetric(horizontal: 16.0),
                       child: Text(
-                        name,
+                        // ✅ Fix 3: Display item.name
+                        item.name,
                         style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w600,
@@ -259,20 +183,276 @@ class CategoriesView extends StatelessWidget {
                 );
               },
             );
-          } else if (state is MegamenuError) {
+          }
+          // else if (state is MegamenuError) {
+          //   return Center(child: Text('Error: ${state.message}'));
+          // }
+          else if (state is MegamenuError) {
+            print("⚠️ ACTUAL ERROR MESSAGE: ${state.message}");
+            // ✅ Check for No Internet specifically
+            if (isNetworkError(state.message)) {
+              return NoInternetWidget(
+                onRetry: () {
+                  // ✅ Retry Logic: Reload the menu
+                  context.read<MegamenuBloc>().add(LoadMegamenu());
+                },
+              );
+            }
+
+            // Standard error message
             return Center(child: Text('Error: ${state.message}'));
-          } else {
+          }
+          else {
             return const Center(child: Text('No categories found.'));
           }
         },
       ),
-      bottomNavigationBar: CommonBottomNavBar(
-        // Index 1 corresponds to the "Categories" item in your nav bar.
+      bottomNavigationBar: const CommonBottomNavBar(
         currentIndex: 1,
       ),
     );
   }
 }
+// class CategoriesView extends StatelessWidget {
+//   // void _navigateToMenuScreen(BuildContext context, String categoryName) {
+//   //   final nameLower = categoryName.toLowerCase();
+//   //
+//   //   if (nameLower.contains('designers')) {
+//   //     Navigator.push(
+//   //       context,
+//   //       MaterialPageRoute(builder: (_) => DesignerListScreen()),
+//   //     );
+//   //   } else {
+//   //     Navigator.push(
+//   //       context,
+//   //       MaterialPageRoute(
+//   //         builder: (_) => MenuCategoriesScreen(categoryName: categoryName),
+//   //       ),
+//   //     );
+//   //   }
+//   // }
+//
+//   void _navigateToMenuScreen(BuildContext context, MegamenuItem item) {
+//
+//     // We get the name from the item object
+//     final categoryName = item.name;
+//     final nameLower = categoryName.toLowerCase();
+//
+//     // You can also access item.url here if you need it later!
+//     // print("URL: ${item.url}");
+//
+//     if (nameLower.contains('designers')) {
+//       Navigator.push(
+//         context,
+//         MaterialPageRoute(builder: (_) => DesignerListScreen()),
+//       );
+//     } else {
+//       Navigator.push(
+//         context,
+//         MaterialPageRoute(
+//           builder: (_) => MenuCategoriesScreen(categoryName: categoryName),
+//         ),
+//       );
+//     }
+//   }
+//
+//   // Widget _buildResponsiveAppBarTitle() {
+//   //   print("met called>>");
+//   //   // This BlocBuilder will automatically handle loading, errors, and data states
+//   //   return BlocBuilder<CurrencyBloc, CurrencyState>(
+//   //     builder: (context, state) {
+//   //       // --- Handle Loading and Error States First ---
+//   //       if (state is CurrencyLoading || state is CurrencyInitial) {
+//   //         return const Center(
+//   //           child: SizedBox(
+//   //             height: 20,
+//   //             width: 20,
+//   //             child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black54),
+//   //           ),
+//   //         );
+//   //       }
+//   //       if (state is CurrencyError) {
+//   //         return Tooltip(
+//   //           message: state.message,
+//   //           child: const Icon(Icons.error_outline, color: Colors.red),
+//   //         );
+//   //       }
+//   //
+//   //
+//   //       // --- Handle the Success State ---
+//   //       if (state is CurrencyLoaded) {
+//   //         // ✅ Wrap the logo and the dropdown in a Row for side-by-side layout.
+//   //         return Row(
+//   //           children: [
+//   //             // 1. Add the logo as the first item in the Row.
+//   //             Image.asset('assets/logo.jpeg', height: 30),
+//   //             const SizedBox(width: 16),
+//   //
+//   //
+//   //             // 2. Wrap the Dropdown in an Expanded widget.
+//   //             // This tells the dropdown to fill all remaining horizontal space in the AppBar.
+//   //             // Expanded(
+//   //             //   child: DropdownButtonHideUnderline(
+//   //             //     child: DropdownButton<String>(
+//   //             //       value: state.selectedCurrencyCode,
+//   //             //       isExpanded: true, // Ensures it fills the Expanded widget
+//   //             //       icon: const Icon(Icons.keyboard_arrow_down, color: Colors.black87),
+//   //             //       onChanged: (newCode) {
+//   //             //         if (newCode != null) {
+//   //             //           context.read<CurrencyBloc>().add(ChangeCurrency(newCode));
+//   //             //           _updateCartCurrency(newCode);
+//   //             //         }
+//   //             //       },
+//   //             //       // This builder defines how the selected item looks when the dropdown is CLOSED.
+//   //             //       selectedItemBuilder: (context) {
+//   //             //         return state.currencyData.availableCurrencyCodes
+//   //             //             .map((_) => Align(
+//   //             //           alignment: Alignment.centerLeft,
+//   //             //           child: Text(
+//   //             //             '${state.selectedCurrencyCode} | ${state.selectedSymbol}',
+//   //             //             style: const TextStyle(
+//   //             //                 color: Colors.black,
+//   //             //                 fontWeight: FontWeight.w500,
+//   //             //                 fontSize: 14 // Adjusted for better fit
+//   //             //             ),
+//   //             //             overflow: TextOverflow.ellipsis,
+//   //             //           ),
+//   //             //         ))
+//   //             //             .toList();
+//   //             //       },
+//   //             //       // This builds the list of items when the dropdown is OPEN.
+//   //             //       items: state.currencyData.availableCurrencyCodes.map((code) {
+//   //             //         return DropdownMenuItem<String>(
+//   //             //           value: code,
+//   //             //           child: Text(code),
+//   //             //         );
+//   //             //       }).toList(),
+//   //             //     ),
+//   //             //   ),
+//   //             // ),
+//   //           ],
+//   //         );
+//   //       }
+//   //
+//   //
+//   //       // Fallback for any other unhandled state
+//   //       return const SizedBox.shrink();
+//   //     },
+//   //   );
+//   // }
+//   @override
+//   Widget build(BuildContext context) {
+//     return Scaffold(
+//       // appBar: AppBar(
+//       //   title: _buildResponsiveAppBarTitle(),
+//       //   elevation: 0,
+//       //   backgroundColor: Colors.white,
+//       //   foregroundColor: Colors.black,
+//       //   // ✅ The 'bottom' property is now REMOVED to hide the TabBar
+//       //   actions: [
+//       //     // IconButton(
+//       //     //   icon: const Icon(Icons.search),
+//       //     //   onPressed: () {
+//       //     //     showDialog(
+//       //     //       context: context,
+//       //     //       builder: (context) => const SearchScreen1(),
+//       //     //     );
+//       //     //   },
+//       //     // ),
+//       //     // IconButton(
+//       //     //   icon: Stack(
+//       //     //     clipBehavior: Clip.none,
+//       //     //     children: [
+//       //     //       const Icon(Icons.shopping_bag_rounded, color: Colors.black),
+//       //     //       if (cartQty > 0)
+//       //     //         Positioned(
+//       //     //           right: -6,
+//       //     //           top: -6,
+//       //     //           child: Container(
+//       //     //             padding: const EdgeInsets.all(2),
+//       //     //             decoration: BoxDecoration(
+//       //     //               color: Colors.red,
+//       //     //               borderRadius: BorderRadius.circular(10),
+//       //     //             ),
+//       //     //             constraints:
+//       //     //             const BoxConstraints(minWidth: 18, minHeight: 18),
+//       //     //             child: Text(
+//       //     //               '$cartQty',
+//       //     //               style: const TextStyle(
+//       //     //                 color: Colors.white,
+//       //     //                 fontSize: 12,
+//       //     //                 fontWeight: FontWeight.bold,
+//       //     //               ),
+//       //     //               textAlign: TextAlign.center,
+//       //     //             ),
+//       //     //           ),
+//       //     //         ),
+//       //     //     ],
+//       //     //   ),
+//       //     //   onPressed: () {
+//       //     //     Navigator.push(
+//       //     //       context,
+//       //     //       MaterialPageRoute(builder: (context) => ShoppingBagScreen()),
+//       //     //     );
+//       //     //   },
+//       //     // ),
+//       //   ],
+//       // ),
+//       backgroundColor: Colors.white,
+//       body: BlocBuilder<MegamenuBloc, MegamenuState>(
+//         builder: (context, state) {
+//           if (state is MegamenuLoading) {
+//             return const Center(child: CircularProgressIndicator());
+//           } else if (state is MegamenuLoaded) {
+//             final categories = state.menuItems;
+//
+//             return ListView.builder(
+//               padding: const EdgeInsets.all(12.0),
+//               itemCount: categories.length,
+//               itemBuilder: (context, index) {
+//                 final name = categories[index];
+//
+//                 return GestureDetector(
+//                   onTap: () => _navigateToMenuScreen(context, item),
+//                   child: Card(
+//                     elevation: 2,
+//                     margin: const EdgeInsets.only(bottom: 10.0),
+//                     shape: RoundedRectangleBorder(
+//                       borderRadius: BorderRadius.circular(10),
+//                     ),
+//                     color: Colors.white,
+//                     child: Container(
+//                       height: 70,
+//                       alignment: Alignment.center,
+//                       padding: const EdgeInsets.symmetric(horizontal: 16.0),
+//                       child: Text(
+//                         index,
+//                         style: const TextStyle(
+//                           fontSize: 18,
+//                           fontWeight: FontWeight.w600,
+//                         ),
+//                         maxLines: 1,
+//                         overflow: TextOverflow.ellipsis,
+//                       ),
+//                     ),
+//                   ),
+//                 );
+//               },
+//             );
+//           } else if (state is MegamenuError) {
+//             return Center(child: Text('Error: ${state.message}'));
+//           } else {
+//             return const Center(child: Text('No categories found.'));
+//           }
+//         },
+//       ),
+//       bottomNavigationBar: CommonBottomNavBar(
+//         // Index 1 corresponds to the "Categories" item in your nav bar.
+//         currentIndex: 1,
+//       ),
+//     );
+//   }
+// }
 
 // class CategoriesView extends StatelessWidget {
 //   // Map of category names to asset image paths

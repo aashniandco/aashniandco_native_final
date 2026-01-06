@@ -82,6 +82,7 @@ class Product {
   final String? patterns_name;
   final String? gender_name;
   final String? kid_name;
+  final List<int>? enquire1;
 
   Product({
     required this.designerName,
@@ -100,6 +101,7 @@ class Product {
     this.patterns_name,
     this.gender_name,
     this.kid_name,
+    this.enquire1,
 
   });
 
@@ -113,6 +115,12 @@ class Product {
         return value.first?.toString();
       }
       // Return null if the value is null, an empty list, or another type.
+      return null;
+    }
+    List<int>? _parseEnquireList(dynamic value) {
+      if (value is List) {
+        return value.map((e) => (e is int) ? e : int.tryParse(e.toString())).whereType<int>().toList();
+      }
       return null;
     }
     return Product(
@@ -133,6 +141,7 @@ class Product {
       patterns_name: _getFirstString(json['patterns_name']),
       gender_name: _getFirstString(json['gender_name']),
       kid_name: _getFirstString(json['kid_name']),
+        enquire1: _parseEnquireList(json['enquire_1']),
     );
   }
 
@@ -155,6 +164,7 @@ class Product {
       'patterns_name': patterns_name,
       'gender_name': gender_name,
       'kid_name': kid_name,
+      'enquire1' :enquire1,
 
 
     };

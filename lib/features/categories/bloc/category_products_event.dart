@@ -72,6 +72,8 @@ class FetchProducts extends CategoryProductsEvent {
   // ✅ ADD THIS NEW PROPERTY
   final List<Map<String, String>>? selectedFilters;
 
+
+
   const FetchProducts({
     required this.categoryName,
     required this.sortOption,
@@ -83,6 +85,7 @@ class FetchProducts extends CategoryProductsEvent {
   List<Object> get props => [categoryName, sortOption, isReset];
 }
 
+class LoadProducts extends CategoryProductsEvent {}
 
 // lib/features/category_products/bloc/category_products_event.dart
 

@@ -152,6 +152,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with TickerProviderStat
       IOClient ioClient = IOClient(httpClient);
 
       final response = await ioClient.post(
+        // Uri.parse('https://aashniandco.com/rest/V1/solr/update-currency'),
         Uri.parse('https://aashniandco.com/rest/V1/solr/update-currency'),
         headers: {
           'Authorization': 'Bearer $customerToken',
@@ -242,6 +243,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with TickerProviderStat
       IOClient ioClient = IOClient(httpClient);
 
       final response = await ioClient.get(
+        // Uri.parse('https://aashniandco.com/rest/V1/carts/mine'),
         Uri.parse('https://aashniandco.com/rest/V1/carts/mine'),
         headers: {
           'Authorization': 'Bearer $customerToken',
@@ -259,7 +261,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with TickerProviderStat
           setState(() => cartQty = 0);
         }
       }
-    } catch (e) {
+    }
+    catch (e) {
       print('Error fetching cart quantity: $e');
       if (mounted) setState(() => cartQty = 0);
     }
@@ -474,7 +477,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with TickerProviderStat
           unselectedFontSize: screenWidth < 360 ? 11 : 12,
           items: const [
             BottomNavigationBarItem(icon: Icon(Icons.home_outlined), activeIcon: Icon(Icons.home), label: "Home"),
-            BottomNavigationBarItem(icon: Icon(Icons.category_outlined), activeIcon: Icon(Icons.category), label: "Categories"),
+            BottomNavigationBarItem(icon: Icon(Icons.category_outlined), activeIcon: Icon(Icons.category), label: "Shop"),
             BottomNavigationBarItem(icon: Icon(Icons.palette_outlined), activeIcon: Icon(Icons.palette), label: "Designers"),
             BottomNavigationBarItem(icon: Icon(Icons.favorite_border), activeIcon: Icon(Icons.favorite), label: "Wish List"),
             BottomNavigationBarItem(icon: Icon(Icons.person_outline), activeIcon: Icon(Icons.person), label: "Login"),
@@ -523,6 +526,17 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with TickerProviderStat
     );
   }
 
+  bool isNetworkError(String message) {
+    final msg = message.toLowerCase();
+    return msg.contains("socket") ||
+        msg.contains("client") ||
+        msg.contains("host lookup") ||
+        msg.contains("connection") ||
+        msg.contains("os error") ||
+        msg.contains("node name") ||
+        msg.contains("handshake") ||
+        msg.contains("timed out");
+  }
 }
 // class AuthScreen extends ConsumerWidget {
 //   final int initialTabindex;
@@ -1281,7 +1295,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
 //     {'image': 'assets/Festive-Favourites.jpg', 'name': 'DIYARAJVIR'},
 //     {'image': 'assets/Modern-Jewels.jpg', 'name': 'DIYARAJVIR'},
 //     {'image': 'assets/Everyday-Classics.jpg', 'name': 'SAFAA'},
-//     {'image': 'assets/Hand-Jewelry.jpg', 'name': 'PEACHOO'},
+//     {'image': 'assets/Hand-Jewlery.jpg', 'name': 'PEACHOO'},
 //
 //   ];
 //   final List<Map<String, dynamic>> designerData = [

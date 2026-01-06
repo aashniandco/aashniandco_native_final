@@ -14,7 +14,7 @@ import 'package:http/io_client.dart';
 
 class ApiService
 {
-  final String _baseUrl = "https://stage.aashniandco.com/rest/V1";
+  final String _baseUrl = "https://aashniandco.com/rest/V1";
   // --- NEW METHOD TO FETCH PRODUCTS FROM SOLR ---
 
 
@@ -22,6 +22,7 @@ class ApiService
   Future<List<FilterType>> fetchAvailableFilterTypes(String categoryId) async {
     // Whitelist of filters to display, in the desired order.
     const Map<String, String> allowedFiltersMap = {
+      'genders': 'Gender',
       'themes': 'Themes',
       'categories': 'Category',
       'designers': 'Designer',
@@ -34,7 +35,9 @@ class ApiService
     };
 
     final url = Uri.parse('${ApiConstants.baseUrl}/V1/solr/category/$categoryId/filters');
-
+    // 1. PRINT URL
+    print('🔵 [FETCH FILTERS] Requesting filters for Category ID: $categoryId');
+    print('🌐 URL: $url');
     try {
       HttpClient httpClient = HttpClient()..badCertificateCallback = (cert, host, port) => true;
       IOClient ioClient = IOClient(httpClient);
@@ -167,9 +170,6 @@ class ApiService
     }
   }
 
-
-  // ✅ NEW METHOD TO FETCH CATEGORY METADATA
-  // ✅ FINAL ROBUST METHOD - HANDLES UNEXPECTED ARRAY RESPONSE
   Future<Map<String, dynamic>> fetchCategoryMetadataByName(String categoryName) async {
     final urlKey = categoryName
         .toLowerCase()
@@ -179,7 +179,8 @@ class ApiService
         .replaceAll(RegExp(r'[^a-z0-9-]'), '');
 
     final url = Uri.parse('${ApiConstants.baseUrl}/V1/solr/category-by-url-key/$urlKey');
-    print('newinCattabRequesting Category Metadata from URL: $url');
+    print('🟢 [FETCH] Requesting Category Metadata for "$categoryName"');
+    print('🌐 URL: $url');
 
     HttpClient httpClient = HttpClient();
     httpClient.badCertificateCallback = (cert, host, port) => true;
@@ -188,58 +189,137 @@ class ApiService
     try {
       final response = await ioClient.get(url);
 
-      print('Response Status Code: ${response.statusCode}');
-      print('Response Body: ${response.body}');
+      print('📡 Response Status Code: ${response.statusCode}');
+      print('📦 Raw Response Body: ${response.body}');
 
       if (response.statusCode == 200) {
         final dynamic decodedBody = json.decode(response.body);
 
-        // --- PARSING LOGIC FOR THE SPECIFIC ARRAY RESPONSE ---
         if (decodedBody is List && decodedBody.length >= 5) {
-          print("API returned a List. Parsing based on fixed order.");
+          print("✅ API returned a List. Parsing based on fixed order.");
 
-          // Manually build the Map that the app expects, based on the known order.
-          // ["Men", 2, "men", 1381, 1371]
-          //  [0]    [1]   [2]    [3]    [4]
-          // We use .toString() to be safe with types.
-          return {
+          final parsedResult = {
             'cat_name': decodedBody[0].toString(),
-            'cat_level': decodedBody[1], // Assuming this is an int
+            'cat_level': decodedBody[1],
             'cat_url_key': decodedBody[2].toString(),
             'pare_cat_id': decodedBody[3].toString(),
-            'cat_id': decodedBody[4].toString(), // This is the crucial ID
+            'cat_id': decodedBody[4].toString(),
           };
 
+          print('🎯 Parsed Result: $parsedResult');
+          return parsedResult;
+
         } else if (decodedBody is Map<String, dynamic>) {
-          // Fallback for if the API ever gets fixed to return a proper map
-          print("API returned a Map as expected.");
+          print("✅ API returned a Map. Using directly.");
+          print('🎯 Parsed Result: $decodedBody');
           return decodedBody;
+
         } else {
-          // If the response is neither a valid list nor a map, throw an error.
-          throw Exception('API returned an unexpected data format that could not be parsed.');
+          print('⚠️ Unexpected response format: ${decodedBody.runtimeType}');
+          throw Exception('Unexpected data format from API.');
         }
 
       } else {
-        // ... existing error handling for non-200 status codes ...
-        String errorMessage = 'Category not found: $categoryName';
+        // --- Handle non-200 responses ---
+        String errorMessage = '❌ Category not found: $categoryName';
         try {
           final decodedError = json.decode(response.body);
-          if (decodedError['message'] != null) { errorMessage = decodedError['message']; }
-        } catch (_) { errorMessage = response.body; }
+          if (decodedError['message'] != null) {
+            errorMessage = '❌ Error Message from API: ${decodedError['message']}';
+          }
+        } catch (_) {
+          errorMessage = '❌ Raw Error Response: ${response.body}';
+        }
+        print(errorMessage);
         throw Exception(errorMessage);
       }
+
     } catch (e, stackTrace) {
-      // ... existing catch block ...
-      print('--- ERROR FETCHING CATEGORY METADATA ---');
+      print('--- 🚨 ERROR FETCHING CATEGORY METADATA ---');
       print('Exception Type: ${e.runtimeType}');
-      print('Exception Object: $e');
-      print('Stack Trace: \n$stackTrace');
+      print('Exception: $e');
+      print('Stack Trace:\n$stackTrace');
       print('--- END ERROR ---');
       throw Exception('Could not load category details. Please check the debug console.');
     } finally {
       ioClient.close();
     }
   }
+
+
+//8/11/2025
+  // ✅ NEW METHOD TO FETCH CATEGORY METADATA
+  // ✅ FINAL ROBUST METHOD - HANDLES UNEXPECTED ARRAY RESPONSE
+  // Future<Map<String, dynamic>> fetchCategoryMetadataByName(String categoryName) async {
+  //   final urlKey = categoryName
+  //       .toLowerCase()
+  //       .replaceAll("'", "")
+  //       .replaceAll('&', 'and')
+  //       .replaceAll(RegExp(r'[\s_]+'), '-')
+  //       .replaceAll(RegExp(r'[^a-z0-9-]'), '');
+  //
+  //   final url = Uri.parse('${ApiConstants.baseUrl}/V1/solr/category-by-url-key/$urlKey');
+  //   print('newinCattabRequesting Category Metadata from URL: $url');
+  //
+  //   HttpClient httpClient = HttpClient();
+  //   httpClient.badCertificateCallback = (cert, host, port) => true;
+  //   IOClient ioClient = IOClient(httpClient);
+  //
+  //   try {
+  //     final response = await ioClient.get(url);
+  //
+  //     print('Response Status Code: ${response.statusCode}');
+  //     print('Response Body: ${response.body}');
+  //
+  //     if (response.statusCode == 200) {
+  //       final dynamic decodedBody = json.decode(response.body);
+  //
+  //       // --- PARSING LOGIC FOR THE SPECIFIC ARRAY RESPONSE ---
+  //       if (decodedBody is List && decodedBody.length >= 5) {
+  //         print("API returned a List. Parsing based on fixed order.");
+  //
+  //         // Manually build the Map that the app expects, based on the known order.
+  //         // ["Men", 2, "men", 1381, 1371]
+  //         //  [0]    [1]   [2]    [3]    [4]
+  //         // We use .toString() to be safe with types.
+  //         return {
+  //           'cat_name': decodedBody[0].toString(),
+  //           'cat_level': decodedBody[1], // Assuming this is an int
+  //           'cat_url_key': decodedBody[2].toString(),
+  //           'pare_cat_id': decodedBody[3].toString(),
+  //           'cat_id': decodedBody[4].toString(), // This is the crucial ID
+  //         };
+  //
+  //       } else if (decodedBody is Map<String, dynamic>) {
+  //         // Fallback for if the API ever gets fixed to return a proper map
+  //         print("API returned a Map as expected.");
+  //         return decodedBody;
+  //       } else {
+  //         // If the response is neither a valid list nor a map, throw an error.
+  //         throw Exception('API returned an unexpected data format that could not be parsed.');
+  //       }
+  //
+  //     } else {
+  //       // ... existing error handling for non-200 status codes ...
+  //       String errorMessage = 'Category not found: $categoryName';
+  //       try {
+  //         final decodedError = json.decode(response.body);
+  //         if (decodedError['message'] != null) { errorMessage = decodedError['message']; }
+  //       } catch (_) { errorMessage = response.body; }
+  //       throw Exception(errorMessage);
+  //     }
+  //   } catch (e, stackTrace) {
+  //     // ... existing catch block ...
+  //     print('--- ERROR FETCHING CATEGORY METADATA newin_catTab ---');
+  //     print('Exception Type: ${e.runtimeType}');
+  //     print('Exception Object: $e');
+  //     print('Stack Trace: \n$stackTrace');
+  //     print('--- END ERROR ---');
+  //     throw Exception('Could not load category details. Please check the debug console.');
+  //   } finally {
+  //     ioClient.close();
+  //   }
+  // }
 
 
 

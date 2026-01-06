@@ -44,6 +44,39 @@ class OrderHistoryRepository {
   //   }
   // }
 
+  Future<bool> deleteAddress(int addressId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('user_token');
+
+    if (token == null) {
+      throw Exception("User not logged in or token is missing");
+    }
+
+    // Pass the addressId in the URL as per the webapi.xml definition
+    final url = Uri.parse(
+        "${ApiConstants.baseUrl}/V1/aashni-mobileapi/customer/address/delete/$addressId");
+
+    print("=== Deleting Address ===");
+    print("URL: $url");
+
+    final response = await http.post(
+      url,
+      headers: {
+        "Authorization": "Bearer $token",
+        "Content-Type": "application/json",
+      },
+    );
+
+    if (response.statusCode == 200) {
+      print("Address deleted successfully!");
+      return true;
+    } else {
+      throw Exception(
+        "Failed to delete address. Status: ${response.statusCode}, Body: ${response.body}",
+      );
+    }
+  }
+
   Future<OrderDetails11> fetchOrderDetails(String orderId, {bool isGuest = false}) async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('user_token');
@@ -273,6 +306,60 @@ class OrderHistoryRepository {
   }
 
 
+  Future<bool> updateAddress(
+      CustomerAddress address, {
+        String? region,
+        String? regionId,
+      }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('user_token');
+    final customerId = prefs.getString('customer_id');
+
+    if (token == null || customerId == null) {
+      throw Exception("User not logged in or token is missing");
+    }
+
+    final url = Uri.parse(
+        "${ApiConstants.baseUrl}/V1/aashni-mobileapi/customer/address/update");
+
+    final Map<String, dynamic> body = {
+      "addressId": address.id, // ✅ Crucial for update
+      "customerId": int.parse(customerId),
+      "firstname": address.firstname,
+      "lastname": address.lastname,
+      "street": address.street,
+      "city": address.city,
+      "postcode": address.postcode,
+      "countryId": address.country,
+      "telephone": address.telephone,
+      "isDefaultBilling": address.isDefaultBilling,
+      "isDefaultShipping": address.isDefaultShipping,
+      if (region != null) "region": region,
+      if (regionId != null) "regionId": int.tryParse(regionId),
+    };
+
+    print("=== Updating Address ===");
+    print("URL: $url");
+    print("BODY: ${jsonEncode(body)}");
+
+    final response = await http.post(
+      url,
+      headers: {
+        "Authorization": "Bearer $token",
+        "Content-Type": "application/json",
+      },
+      body: jsonEncode(body),
+    );
+
+    if (response.statusCode == 200) {
+      print("Address updated successfully!");
+      return true;
+    } else {
+      throw Exception(
+        "Failed to update address. Status: ${response.statusCode}, Body: ${response.body}",
+      );
+    }
+  }
 
   Future<OrderDetails11> fetchGuestOrderDetails({
     required String orderIncrementId,

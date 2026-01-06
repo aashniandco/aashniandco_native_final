@@ -624,7 +624,7 @@ class _HomeScreenState extends State<HomeScreen> {
       {'image': 'assets/Festive-Favourites.jpg', 'name': 'DIYARAJVIR'},
       {'image': 'assets/Modern-Jewels.jpg', 'name': 'DIYARAJVIR'},
       {'image': 'assets/Everyday-Classics.jpg', 'name': 'SAFAA'},
-      {'image': 'assets/Hand-Jewelry.jpg', 'name': 'PEACHOO'},
+      {'image': 'assets/Hand-Jewlery.jpg', 'name': 'PEACHOO'},
 
     ];
     final List<Map<String, String>> designerData = [

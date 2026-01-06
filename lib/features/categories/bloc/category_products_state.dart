@@ -56,6 +56,11 @@ class CategoryProductsState extends Equatable {
   List<Object?> get props => [status, products, hasReachedMax, errorMessage, currentSortOption];
 }
 
+class CategoryProductsError extends CategoryProductsState {
+  final String message;
+  CategoryProductsError(this.message);
+}
+
 //17/07/2025
 // import '../../newin/model/new_in_model.dart';
 //

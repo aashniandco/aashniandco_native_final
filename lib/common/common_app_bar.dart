@@ -103,9 +103,16 @@ class CommonAppBar extends StatelessWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context) {
     return AppBar(
-      title: titleWidget,
+      title: DefaultTextStyle(
+        style: const TextStyle(
+          fontSize: 16, // 👈 Reduce size here
+          color: Colors.black,
+        ),
+        child: titleWidget ?? const SizedBox(),
+      ),
       automaticallyImplyLeading: automaticallyImplyLeading,
       elevation: 0,
+
       backgroundColor: Colors.white,
       foregroundColor: Colors.black,
       centerTitle: true,

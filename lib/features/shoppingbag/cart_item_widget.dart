@@ -79,6 +79,7 @@ class _CartItemWidgetState extends State<CartItemWidget> {
 
   @override
   Widget build(BuildContext context) {
+
     // This build method does not need any changes.
     // It will automatically use the _imageUrl fetched by the logic above.
 
@@ -92,6 +93,7 @@ class _CartItemWidgetState extends State<CartItemWidget> {
     final price = (double.tryParse(widget.item['price'].toString()) ?? 0.0) * exchangeRate;
 
     return Card(
+      color: Colors.white,
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Padding(
         padding: const EdgeInsets.all(12.0),
@@ -148,7 +150,7 @@ class _CartItemWidgetState extends State<CartItemWidget> {
                           ],
                         ),
                       ),
-                      IconButton(icon: const Icon(Icons.delete_outline, color: Colors.red), onPressed: widget.onDelete),
+                      IconButton(icon: const Icon(Icons.delete_outline, color: Colors.black), onPressed: widget.onDelete),
                     ],
                   ),
                 ],
